@@ -1,4 +1,5 @@
-import { Text, View, StyleSheet } from "react-native"
+import { Gradient } from "@/components/gradient"
+import { StyleSheet, Text, View } from "react-native"
 
 interface FormProps {
   title: string
@@ -9,18 +10,21 @@ interface FormProps {
 
 export function Form({ title, subtitle, children, headerChildren }: FormProps) {
   return (
-    <View style={styles.container}>
-      <View style={styles.contentWrapper}>
-        <View style={styles.headerContainer}>
-          <Text style={styles.headerTitle}>{title}</Text>
-          {subtitle && <Text style={styles.headerSubtitle}>{subtitle}</Text>}
-          {headerChildren}
-        </View>
-        <View style={styles.formContainer}>
-          {children}
+    <>
+      <Gradient position="top" isSpeaking={false} />
+      <View style={styles.container}>
+        <View style={styles.contentWrapper}>
+          <View style={styles.headerContainer}>
+            <Text style={styles.headerTitle}>{title}</Text>
+            {subtitle && <Text style={styles.headerSubtitle}>{subtitle}</Text>}
+            {headerChildren}
+          </View>
+          <View style={styles.formContainer}>
+            {children}
+          </View>
         </View>
       </View>
-    </View>
+    </>
   )
 }
 
@@ -29,7 +33,6 @@ export default Form
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
     justifyContent: "center",
   },
   contentWrapper: {
@@ -41,7 +44,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#ffffff",
+    // backgroundColor: "#ffffff",
   },
   headerTitle: {
     fontSize: 32,
@@ -60,7 +63,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   formContainer: {
-    backgroundColor: "#ffffff",
+    // backgroundColor: "#ffffff",
     paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 20,

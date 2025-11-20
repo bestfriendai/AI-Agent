@@ -1,5 +1,5 @@
-import React from 'react'
-import { TouchableOpacity, Text, StyleSheet } from 'react-native'
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 
 function TextButton({ onPress, text }: { onPress: () => void, text: string }) {
   return (
@@ -20,7 +20,7 @@ const styles = StyleSheet.create({
   },
   switchModeText: {
     fontSize: 16,
-    color: "#5e41f7",
+    color: "#007aff",
     fontWeight: "500",
   }
 });
