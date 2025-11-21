@@ -30,7 +30,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -38,6 +38,15 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for AI voice conversations"
+        }
+      ],
+      [
+        "@livekit/react-native-expo-plugin"
       ]
     ],
     "experiments": {
