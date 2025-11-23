@@ -34,7 +34,7 @@ export default function SessionScreen() {
                 }
             })
         } catch (e) {
-            console.log(e);
+            console.log("Error starting conversation: ", e);
         }
     }
 
@@ -42,6 +42,7 @@ export default function SessionScreen() {
         try {
             await conversation.endSession();
         } catch (e) {
+            console.log("Error ending conversation: ", e);
         }
     }
 
