@@ -30,7 +30,7 @@ const ANIMATION_CONFIG = {
     },
     spring: {
         damping: 10,
-        stiffness: 20,
+        stiffness: 10,
     }
 } as const
 
@@ -143,7 +143,7 @@ export function Gradient({ position, isSpeaking }: GradientProps) {
     }, [isSpeaking, radiusScale])
 
     return (
-        <View style={StyleSheet.absoluteFill}>
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
             <Canvas style={{ flex: 1 }}>
                 <Rect x={0} y={0} width={width} height={height}>
                     <RadialGradient

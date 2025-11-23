@@ -1,10 +1,16 @@
+import { sessions } from "@/utils/sessions";
 import { useUser } from "@clerk/clerk-expo";
 import { useConversation } from "@elevenlabs/react-native";
-import { Button, Text, View } from "react-native";
-import SignOutButton from "../clerk/SignOutButton";
+import { useLocalSearchParams } from "expo-router";
+import { Button, ScrollView, Text } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Gradient } from "../gradient";
 
 export default function SessionScreen() {
-    const { user } = useUser()
+    const { user } = useUser();
+    const { sessionId } = useLocalSearchParams();
+    const session = sessions.find((s) => s.id === Number(sessionId)) ?? sessions[0];
+
     const conversation = useConversation({
         onConnect: () => console.log('Connected to conversation'),
         onDisconnect: () => console.log('Disconnected from conversation'),
@@ -23,8 +29,8 @@ export default function SessionScreen() {
                 agentId: process.env.EXPO_PUBLIC_AGENT_ID,
                 dynamicVariables: {
                     username: user?.firstName || "user",
-                    session_title: "test",
-                    session_description: "test"
+                    session_title: session.title,
+                    session_description: session.description
                 }
             })
         } catch (e) {
@@ -36,16 +42,33 @@ export default function SessionScreen() {
         try {
             await conversation.endSession();
         } catch (e) {
-            console.log(e)
         }
     }
 
     return (
-        <View>
-            <Text>Session Screen {user?.firstName || "unavaliable"}</Text>
-            <Button title="Start Conversation" onPress={startConversation} />
-            <Button title="End Conversation" onPress={endConversation} color={"red"} />
-            <SignOutButton />
-        </View>
+        <>
+            <Gradient
+                position="top"
+                isSpeaking={
+                    conversation.status === "connected" || conversation.status === "connecting"
+                }
+            />
+            <SafeAreaView>
+                <ScrollView contentInsetAdjustmentBehavior="automatic">
+                    <Text>Session Screen {user?.firstName || "unavailable"}</Text>
+                    <Text style={{ fontSize: 32, fontWeight: "bold" }}>Session ID: {sessionId}</Text>
+                    <Button
+                        title="Start Conversation"
+                        onPress={startConversation}
+                        color={"light-blue"}
+                    />
+                    <Button
+                        title="End Conversation"
+                        onPress={endConversation}
+                        color={"red"}
+                    />
+                </ScrollView>
+            </SafeAreaView>
+        </>
     )
 }
