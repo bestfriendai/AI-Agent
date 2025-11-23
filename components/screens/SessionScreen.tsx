@@ -1,6 +1,7 @@
 import { useUser } from "@clerk/clerk-expo";
 import { useConversation } from "@elevenlabs/react-native";
 import { Button, Text, View } from "react-native";
+import SignOutButton from "../clerk/SignOutButton";
 
 export default function SessionScreen() {
     const { user } = useUser()
@@ -21,7 +22,7 @@ export default function SessionScreen() {
             await conversation.startSession({
                 agentId: process.env.EXPO_PUBLIC_AGENT_ID,
                 dynamicVariables: {
-                    username: user?.username || "user",
+                    username: user?.firstName || "user",
                     session_title: "test",
                     session_description: "test"
                 }
@@ -41,9 +42,10 @@ export default function SessionScreen() {
 
     return (
         <View>
-            <Text>Session Screen {user?.username || "unavaliable"}</Text>
+            <Text>Session Screen {user?.firstName || "unavaliable"}</Text>
             <Button title="Start Conversation" onPress={startConversation} />
             <Button title="End Conversation" onPress={endConversation} color={"red"} />
+            <SignOutButton />
         </View>
     )
 }
