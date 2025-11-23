@@ -2,14 +2,16 @@ import { sessions } from "@/utils/sessions";
 import { useUser } from "@clerk/clerk-expo";
 import { useConversation } from "@elevenlabs/react-native";
 import { useLocalSearchParams } from "expo-router";
-import { Button, ScrollView, Text } from "react-native";
+import { Button, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Gradient } from "../gradient";
 
 export default function SessionScreen() {
-    const { user } = useUser();
+    const { user, isLoaded } = useUser();
     const { sessionId } = useLocalSearchParams();
     const session = sessions.find((s) => s.id === Number(sessionId)) ?? sessions[0];
+
+    if (!isLoaded) return null;
 
     const conversation = useConversation({
         onConnect: () => console.log('Connected to conversation'),
@@ -55,20 +57,18 @@ export default function SessionScreen() {
                 }
             />
             <SafeAreaView>
-                <ScrollView contentInsetAdjustmentBehavior="automatic">
-                    <Text>Session Screen {user?.firstName || "unavailable"}</Text>
-                    <Text style={{ fontSize: 32, fontWeight: "bold" }}>Session ID: {sessionId}</Text>
-                    <Button
-                        title="Start Conversation"
-                        onPress={startConversation}
-                        color={"light-blue"}
-                    />
-                    <Button
-                        title="End Conversation"
-                        onPress={endConversation}
-                        color={"red"}
-                    />
-                </ScrollView>
+                <Text>Session Screen {user?.firstName || "unavailable"}</Text>
+                <Text style={{ fontSize: 32, fontWeight: "bold" }}>Session ID: {sessionId}</Text>
+                <Button
+                    title="Start Conversation"
+                    onPress={startConversation}
+                    color={"light-blue"}
+                />
+                <Button
+                    title="End Conversation"
+                    onPress={endConversation}
+                    color={"red"}
+                />
             </SafeAreaView>
         </>
     )
