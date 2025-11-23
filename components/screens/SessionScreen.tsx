@@ -1,7 +1,9 @@
+import { useUser } from "@clerk/clerk-expo";
 import { useConversation } from "@elevenlabs/react-native";
-import { Text, View } from "react-native";
+import { Button, Text, View } from "react-native";
 
 export default function SessionScreen() {
+    const { user } = useUser()
     const conversation = useConversation({
         onConnect: () => console.log('Connected to conversation'),
         onDisconnect: () => console.log('Disconnected from conversation'),
@@ -14,9 +16,34 @@ export default function SessionScreen() {
         onUnhandledClientToolCall: (params) => console.log('Unhandled client tool call:', params),
     });
 
+    const startConversation = async () => {
+        try {
+            await conversation.startSession({
+                agentId: process.env.EXPO_PUBLIC_AGENT_ID,
+                dynamicVariables: {
+                    username: user?.username || "user",
+                    session_title: "test",
+                    session_description: "test"
+                }
+            })
+        } catch (e) {
+            console.log(e);
+        }
+    }
+
+    const endConversation = async () => {
+        try {
+            await conversation.endSession();
+        } catch (e) {
+            console.log(e)
+        }
+    }
+
     return (
         <View>
-            <Text>Session Screen</Text>
+            <Text>Session Screen {user?.username || "unavaliable"}</Text>
+            <Button title="Start Conversation" onPress={startConversation} />
+            <Button title="End Conversation" onPress={endConversation} color={"red"} />
         </View>
     )
 }
