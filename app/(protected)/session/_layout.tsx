@@ -1,10 +1,10 @@
-import SessionScreen from "@/components/screens/SessionScreen";
 import { ElevenLabsProvider } from "@elevenlabs/react-native";
+import { Slot } from "expo-router";
 
-export default function Session() {
+export default function SessionLayout() {
     return (
         <ElevenLabsProvider>
-            <SessionScreen />
+            <Slot />
         </ElevenLabsProvider>
-    );
+    )
 }

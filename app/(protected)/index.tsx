@@ -14,7 +14,7 @@ export default function Index() {
           style={{ borderWidth: 1, padding: 16, marginVertical: 6 }}
           onPress={() =>
             router.navigate({
-              pathname: "/session",
+              pathname: "/session/[sessionId]",
               params: { sessionId: session.id },
             })
           }

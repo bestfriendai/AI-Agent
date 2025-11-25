@@ -133,7 +133,7 @@ export function Gradient({ position, isSpeaking }: GradientProps) {
     useEffect(() => {
         if (isSpeaking) {
             radiusScale.value = withRepeat(
-                withTiming(RADIUS_CONFIG.speakingScale, { duration: ANIMATION_CONFIG.duration.PULSE }),
+                withTiming(RADIUS_CONFIG.maxScale, { duration: ANIMATION_CONFIG.duration.PULSE }),
                 -1,
                 true
             )

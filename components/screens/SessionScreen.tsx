@@ -2,14 +2,17 @@ import { sessions } from "@/utils/sessions";
 import { useUser } from "@clerk/clerk-expo";
 import { useConversation } from "@elevenlabs/react-native";
 import { useLocalSearchParams } from "expo-router";
-import { Button, Text } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useState } from "react";
+import { Text, View } from "react-native";
+import Button from "../Button";
 import { Gradient } from "../gradient";
 
 export default function SessionScreen() {
     const { user, isLoaded } = useUser();
     const { sessionId } = useLocalSearchParams();
     const session = sessions.find((s) => s.id === Number(sessionId)) ?? sessions[0];
+
+    const [isStarting, setIsStarting] = useState(false);
 
     if (!isLoaded) return null;
 
@@ -26,7 +29,11 @@ export default function SessionScreen() {
     });
 
     const startConversation = async () => {
+        if (isStarting) return;
+        if (conversation.status !== "disconnected") return;
+
         try {
+            setIsStarting(true);
             await conversation.startSession({
                 agentId: process.env.EXPO_PUBLIC_AGENT_ID,
                 dynamicVariables: {
@@ -37,10 +44,14 @@ export default function SessionScreen() {
             })
         } catch (e) {
             console.log("Error starting conversation: ", e);
+        } finally {
+            setIsStarting(false);
         }
     }
 
     const endConversation = async () => {
+        if (conversation.status !== "connected") return;
+
         try {
             await conversation.endSession();
         } catch (e) {
@@ -56,20 +67,22 @@ export default function SessionScreen() {
                     conversation.status === "connected" || conversation.status === "connecting"
                 }
             />
-            <SafeAreaView>
-                <Text>Session Screen {user?.firstName || "unavailable"}</Text>
-                <Text style={{ fontSize: 32, fontWeight: "bold" }}>Session ID: {sessionId}</Text>
+            <View
+                style={{
+                    flex: 1,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    gap: 16,
+                }}>
+                <Text style={{ fontSize: 32, fontWeight: "bold" }}>{session.title}</Text>
+                <Text style={{ fontSize: 16, fontWeight: 500, opacity: 0.5 }}>{session.description}</Text>
                 <Button
-                    title="Start Conversation"
-                    onPress={startConversation}
-                    color={"light-blue"}
-                />
-                <Button
-                    title="End Conversation"
-                    onPress={endConversation}
-                    color={"red"}
-                />
-            </SafeAreaView>
+                    onPress={conversation.status === 'connected' ? endConversation : startConversation}
+                    disabled={isStarting || conversation.status === 'connecting'}
+                >
+                    {conversation.status === 'connected' ? "End Conversation" : (isStarting || conversation.status === 'connecting' ? "Connecting..." : "Start Conversation")}
+                </Button>
+            </View>
         </>
     )
 }
