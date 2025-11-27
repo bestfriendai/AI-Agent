@@ -42,7 +42,7 @@
       "package": "com.prashanttt_214.siora"
     },
     "web": {
-      "output": "static",
+      "output": "server",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [

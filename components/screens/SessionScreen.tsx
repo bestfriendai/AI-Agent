@@ -2,7 +2,7 @@ import { sessions } from "@/utils/sessions";
 import { useUser } from "@clerk/clerk-expo";
 import { useConversation } from "@elevenlabs/react-native";
 import * as Brightness from "expo-brightness";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import Button from "../Button";
@@ -11,14 +11,21 @@ import { Gradient } from "../gradient";
 export default function SessionScreen() {
     const { user, isLoaded } = useUser();
     const { sessionId } = useLocalSearchParams();
+    const router = useRouter();
     const session = sessions.find((s) => s.id === Number(sessionId)) ?? sessions[0];
 
     const [isStarting, setIsStarting] = useState(false);
+    const [conversationId, setConversationId] = useState<string | null>(null);
 
     if (!isLoaded) return null;
 
     const conversation = useConversation({
-        onConnect: () => console.log('Connected to conversation'),
+        onConnect: (data: any) => {
+            console.log('Connected to conversation', data);
+            if (data?.conversationId) {
+                setConversationId(data.conversationId);
+            }
+        },
         onDisconnect: () => console.log('Disconnected from conversation'),
         onMessage: (message) => console.log('Received message:', message),
         onError: (error) => console.error('Conversation error:', error),
@@ -41,6 +48,7 @@ export default function SessionScreen() {
         }
     });
 
+
     const startConversation = async () => {
         if (isStarting) return;
         if (conversation.status !== "disconnected") return;
@@ -54,7 +62,7 @@ export default function SessionScreen() {
                     session_title: session.title,
                     session_description: session.description
                 }
-            })
+            });
         } catch (e) {
             console.log("Error starting conversation: ", e);
         } finally {
@@ -67,6 +75,9 @@ export default function SessionScreen() {
 
         try {
             await conversation.endSession();
+            if (conversationId) {
+                router.push(`/summary?conversationId=${conversationId}`);
+            }
         } catch (e) {
             console.log("Error ending conversation: ", e);
         }
