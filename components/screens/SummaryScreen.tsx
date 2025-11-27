@@ -1,7 +1,8 @@
 import { ConversationResponse } from "@/utils/types";
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ScrollView, Text } from "react-native";
+import { Text } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Gradient } from "../gradient";
 
 export default function SummaryScreen() {
@@ -16,8 +17,14 @@ export default function SummaryScreen() {
 
     async function getSummary() {
         const response = await fetch(
-            `${process.env.EXPO_PUBLIC_BASE_URL}/api/conversations?conversation=${conversationId}`
+            `${process.env.EXPO_PUBLIC_BASE_URL}/api/conversations?conversationId=${conversationId}`
         );
+
+        if (!response.ok) {
+            const text = await response.text();
+            console.error("Failed to fetch summary:", text);
+            return;
+        }
 
         const data: { conversation: ConversationResponse } =
             await response.json();
@@ -28,14 +35,9 @@ export default function SummaryScreen() {
     return (
         <>
             <Gradient position="bottom" isSpeaking={false} />
-            <ScrollView
-                contentInsetAdjustmentBehavior="automatic"
-                contentContainerStyle={{
-                    paddingHorizontal: 16,
-                }}
-            >
-                <Text>Summary {conversation?.agent_id}</Text>
-            </ScrollView>
+            <SafeAreaView style={{ paddingHorizontal: 16 }}>
+                <Text>Summary: {conversation?.agent_id ?? "not found"}</Text>
+            </SafeAreaView>
         </>
     );
 }
