@@ -1,6 +1,7 @@
 import { sessions } from "@/utils/sessions";
 import { useUser } from "@clerk/clerk-expo";
-import { useConversation } from "@elevenlabs/react-native";
+// Use the hook wrapper to support both Native (via .native.ts) and Web (via .tsx mock)
+import { useConversation } from "@/hooks/useConversation";
 import * as Brightness from "expo-brightness";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
@@ -27,13 +28,13 @@ export default function SessionScreen() {
             }
         },
         onDisconnect: () => console.log('Disconnected from conversation'),
-        onMessage: (message) => console.log('Received message:', message),
-        onError: (error) => console.error('Conversation error:', error),
-        onModeChange: (mode) => console.log('Conversation mode changed:', mode),
-        onStatusChange: (prop) => console.log('Conversation status changed:', prop.status),
-        onCanSendFeedbackChange: (prop) =>
+        onMessage: (message: any) => console.log('Received message:', message),
+        onError: (error: any) => console.error('Conversation error:', error),
+        onModeChange: (mode: any) => console.log('Conversation mode changed:', mode),
+        onStatusChange: (prop: any) => console.log('Conversation status changed:', prop.status),
+        onCanSendFeedbackChange: (prop: any) =>
             console.log('Can send feedback changed:', prop.canSendFeedback),
-        onUnhandledClientToolCall: (params) => console.log('Unhandled client tool call:', params),
+        onUnhandledClientToolCall: (params: any) => console.log('Unhandled client tool call:', params),
 
         clientTools: {
             handleSetBrightness: async (params: unknown) => {

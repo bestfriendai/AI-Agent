@@ -1,4 +1,4 @@
-import { ElevenLabsProvider } from "@elevenlabs/react-native";
+import { ElevenLabsProvider } from "@/hooks/useConversation";
 import { Slot } from "expo-router";
 
 export default function SessionLayout() {
