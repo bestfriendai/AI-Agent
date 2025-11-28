@@ -5,7 +5,7 @@ import { StyleSheet, Text, View } from "react-native";
 import Animated, { interpolate, useAnimatedRef, useAnimatedStyle, useScrollOffset } from "react-native-reanimated";
 import Button from "./Button";
 
-const blurhash = "LNF$b0%gNI9G_LRl-qRkIAIUxvoz";
+export const blurhash = "LNF$b0%gNI9G_LRl-qRkIAIUxvoz";
 const HEADER_HEIGHT = 400;
 
 export default function ParallaxScrollView({ children }: PropsWithChildren) {
@@ -52,7 +52,14 @@ export default function ParallaxScrollView({ children }: PropsWithChildren) {
                 ref={scrollRef}
                 scrollEventThrottle={16}
             >
-                <Animated.View style={headerAnimatedStyle}>
+                <Animated.View style={[
+                    {
+                        height: HEADER_HEIGHT,
+                        overflow: "hidden",
+                    },
+                    headerAnimatedStyle,
+                ]}
+                >
                     <Image
                         source={todaySession.image}
                         placeholder={blurhash}
