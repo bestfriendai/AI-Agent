@@ -10,6 +10,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Query } from "react-native-appwrite";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 export default function Index() {
   const router = useRouter();
@@ -83,76 +84,68 @@ export default function Index() {
         ))}
       </ScrollView>
 
-      <View
-        style={{
-          flexGrow: 1,
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          paddingRight: 16,
-        }}
-      >
-        <Text style={styles.title}>Recents</Text>
-
-        <Pressable onPress={fetchSession}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Recent History</Text>
+        <Pressable
+          onPress={fetchSession}
+          style={({ pressed }) => [
+            styles.refreshButton,
+            pressed && { opacity: 0.7 }
+          ]}
+        >
           <Ionicons
-            name="refresh-circle-sharp"
-            size={32}
+            name="refresh"
+            size={20}
             color={colors.primary}
           />
         </Pressable>
       </View>
 
-      <View style={{ gap: 16 }}>
-        {sessionHistory.length > 0
-          ? (
-            sessionHistory.map((session) => (
-              <SessionCard key={session.$id} session={session} />
-            ))
-          ) : (
-            <View
-              style={{
-                flex: 1,
-                justifyContent: "center",
-                alignItems: "center",
-              }}
+      <View style={styles.historyContainer}>
+        {sessionHistory.length > 0 ? (
+          sessionHistory.map((session, index) => (
+            <Animated.View
+              key={session.$id}
+              entering={FadeInDown.delay(index * 100 + 300).springify()}
             >
-              <Text
-                style={{
-                  fontSize: 16,
-                  textAlign: "center",
-                }}
-              >
-                No sessions found
-              </Text>
-            </View>
-          )}
+              <SessionCard session={session} />
+            </Animated.View>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="time-outline" size={48} color="#ccc" />
+            <Text style={styles.emptyStateText}>No recent sessions</Text>
+            <Text style={styles.emptyStateSubtext}>Start a conversation to see it here</Text>
+          </View>
+        )}
       </View>
 
-      <Text style={styles.title}>Account</Text>
-      <View
-        style={{
-          borderRadius: 16,
-          padding: 16,
-          marginHorizontal: 16,
-          backgroundColor: "white",
-          gap: 8,
-          marginBottom: 100,
-        }}
-      >
-        <Image
-          source={user?.imageUrl}
-          style={{ width: 50, height: 50, borderRadius: 100 }}
-        />
-        <Text style={{ fontSize: 20, fontWeight: "bold" }}>
-          {user?.firstName} {user?.lastName}
-        </Text>
-        <Text style={{ fontSize: 16 }}>
-          {user?.emailAddresses[0].emailAddress}
-        </Text>
-        <SignOutButton />
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Profile</Text>
       </View>
 
+      <View style={styles.profileCard}>
+        <View style={styles.profileHeader}>
+          <Image
+            source={user?.imageUrl}
+            style={styles.profileImage}
+            contentFit="cover"
+          />
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>
+              {user?.firstName} {user?.lastName}
+            </Text>
+            <Text style={styles.profileEmail}>
+              {user?.emailAddresses[0].emailAddress}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.profileActions}>
+          <SignOutButton />
+        </View>
+      </View>
+
+      <View style={{ height: 40 }} />
     </ParallaxScrollView>
   );
 }
@@ -166,47 +159,55 @@ const SessionCard = ({ session }: { session: Session }) => {
   }, []);
 
   return (
-    <View
-      style={{
-        borderRadius: 16,
-        padding: 16,
-        marginHorizontal: 16,
-        backgroundColor: "white",
-        gap: 8,
-      }}
+    <Pressable
+      style={styles.card}
+      onPress={() => setIsExpanded(!isExpanded)}
     >
-      <Text style={{ fontSize: 24 }}>{randomEmoji}</Text>
-      <Text style={{ fontSize: 20, fontWeight: "bold" }}>
-        {session.call_summary_title}
-      </Text>
+      <View style={styles.cardHeader}>
+        <View style={styles.emojiContainer}>
+          <Text style={styles.emoji}>{randomEmoji}</Text>
+        </View>
+        <View style={styles.cardHeaderText}>
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {session.call_summary_title || "Untitled Session"}
+          </Text>
+          <Text style={styles.cardDate}>
+            {new Date(session.$createdAt).toLocaleDateString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+              hour: "numeric",
+              minute: "numeric"
+            })}
+          </Text>
+        </View>
+        <Ionicons
+          name={isExpanded ? "chevron-up" : "chevron-down"}
+          size={20}
+          color="#999"
+        />
+      </View>
 
-      {isExpanded ? (
-        <>
-          <Text style={{ fontSize: 16 }}>{session.transcript}</Text>
-          <Pressable onPress={() => setIsExpanded(false)}>
-            <Text style={{ fontSize: 16, color: colors.primary }}>
-              Read less
-            </Text>
-          </Pressable>
-        </>
-      ) : (
-        <Pressable onPress={() => setIsExpanded(true)}>
-          <Text style={{ fontSize: 16, color: colors.primary }}>Read more</Text>
-        </Pressable>
+      <View style={styles.cardStats}>
+        <View style={styles.statBadge}>
+          <Ionicons name="time-outline" size={12} color="#666" />
+          <Text style={styles.statText}>{session.call_duration_secs}s</Text>
+        </View>
+        <View style={styles.statBadge}>
+          <Ionicons name="chatbubble-outline" size={12} color="#666" />
+          <Text style={styles.statText}>{session.tokens} tokens</Text>
+        </View>
+      </View>
+
+      {isExpanded && (
+        <Animated.View entering={FadeInDown.duration(200)} style={styles.cardContent}>
+          <Text style={styles.transcriptLabel}>Summary</Text>
+          <Text style={styles.transcriptText}>{session.transcript}</Text>
+        </Animated.View>
       )}
-      <Text style={{ fontSize: 16 }}>
-        {session.call_duration_secs} seconds, {session.tokens} tokens
-      </Text>
-
-      <Text style={{ fontSize: 14 }}>
-        {new Date(session.$createdAt).toLocaleDateString("en-US", {
-          weekday: "long",
-        })}
-      </Text>
-    </View>
+    </Pressable>
   );
 };
-
 
 const styles = StyleSheet.create({
   title: {
@@ -231,5 +232,174 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
     color: "white",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginTop: 32,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#1a1a1a",
+  },
+  refreshButton: {
+    padding: 8,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 20,
+  },
+  historyContainer: {
+    paddingHorizontal: 20,
+    gap: 16,
+  },
+  emptyState: {
+    padding: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f8f9fa",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderStyle: "dashed",
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#666",
+    marginTop: 12,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: "#999",
+    marginTop: 4,
+  },
+  card: {
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#f0f0f0",
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  emojiContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#f0f8ff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emoji: {
+    fontSize: 24,
+  },
+  cardHeaderText: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#1a1a1a",
+    marginBottom: 4,
+  },
+  cardDate: {
+    fontSize: 13,
+    color: "#888",
+  },
+  cardStats: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+    paddingLeft: 60, // Align with text
+  },
+  statBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#f5f5f5",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statText: {
+    fontSize: 12,
+    color: "#666",
+    fontWeight: "500",
+  },
+  cardContent: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+  },
+  transcriptLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#999",
+    textTransform: "uppercase",
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  transcriptText: {
+    fontSize: 15,
+    color: "#444",
+    lineHeight: 22,
+  },
+  profileCard: {
+    marginHorizontal: 20,
+    backgroundColor: "white",
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  profileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 20,
+  },
+  profileImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1a1a1a",
+  },
+  profileEmail: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 2,
+  },
+  profileActions: {
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+    paddingTop: 16,
   },
 });
