@@ -242,6 +242,65 @@ export default function ProfileScreen() {
                             </View>
                         </View>
 
+                        <Text style={styles.sectionHeader}>Preferences</Text>
+                        <View style={styles.menuGroup}>
+                            <TouchableOpacity style={styles.menuItem}>
+                                <View style={[styles.menuIcon, { backgroundColor: '#E3F2FD' }]}>
+                                    <Ionicons name="mic-outline" size={20} color="#2196F3" />
+                                </View>
+                                <View style={styles.menuContent}>
+                                    <Text style={styles.menuLabel}>Voice Settings</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+                            </TouchableOpacity>
+                            <View style={styles.divider} />
+                            <TouchableOpacity style={styles.menuItem}>
+                                <View style={[styles.menuIcon, { backgroundColor: '#F3E5F5' }]}>
+                                    <Ionicons name="moon-outline" size={20} color="#9C27B0" />
+                                </View>
+                                <View style={styles.menuContent}>
+                                    <Text style={styles.menuLabel}>Appearance</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={styles.sectionHeader}>Support</Text>
+                        <View style={styles.menuGroup}>
+                            <TouchableOpacity style={styles.menuItem}>
+                                <View style={[styles.menuIcon, { backgroundColor: '#E0F2F1' }]}>
+                                    <Ionicons name="help-buoy-outline" size={20} color="#009688" />
+                                </View>
+                                <View style={styles.menuContent}>
+                                    <Text style={styles.menuLabel}>Help & Support</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+                            </TouchableOpacity>
+                            <View style={styles.divider} />
+                            <TouchableOpacity style={styles.menuItem}>
+                                <View style={[styles.menuIcon, { backgroundColor: '#E8F5E9' }]}>
+                                    <Ionicons name="shield-checkmark-outline" size={20} color="#4CAF50" />
+                                </View>
+                                <View style={styles.menuContent}>
+                                    <Text style={styles.menuLabel}>Privacy Policy</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+                            </TouchableOpacity>
+                            <View style={styles.divider} />
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={clearAllSessions}
+                            >
+                                <View style={[styles.menuIcon, { backgroundColor: '#FFEBEE' }]}>
+                                    <Ionicons name="trash-outline" size={20} color={colors.red} />
+                                </View>
+                                <View style={styles.menuContent}>
+                                    <Text style={[styles.menuLabel, { color: colors.red }]}>Clear History</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+                            </TouchableOpacity>
+                        </View>
+
                         <TouchableOpacity
                             style={styles.signOutButton}
                             onPress={handleSignOut}
