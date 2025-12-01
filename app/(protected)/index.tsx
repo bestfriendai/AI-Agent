@@ -1,5 +1,5 @@
-import SignOutButton from "@/components/clerk/SignOutButton";
 import ParallaxScrollView, { blurhash } from "@/components/ParallaxScrollView";
+import ProfileIcon from "@/components/ProfileIcon";
 import { appwriteConfig, database, Session } from "@/utils/appwrite";
 import { colors } from "@/utils/colors";
 import { sessions } from "@/utils/sessions";
@@ -39,7 +39,7 @@ export default function Index() {
   }
 
   return (
-    <ParallaxScrollView>
+    <ParallaxScrollView headerRight={<ProfileIcon />}>
       <Text style={styles.title}>Explore Sessions</Text>
       <ScrollView
         contentContainerStyle={{
@@ -119,32 +119,6 @@ export default function Index() {
           </View>
         )}
       </View>
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Profile</Text>
-      </View>
-
-      <View style={styles.profileCard}>
-        <View style={styles.profileHeader}>
-          <Image
-            source={user?.imageUrl}
-            style={styles.profileImage}
-            contentFit="cover"
-          />
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>
-              {user?.firstName} {user?.lastName}
-            </Text>
-            <Text style={styles.profileEmail}>
-              {user?.emailAddresses[0].emailAddress}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.profileActions}>
-          <SignOutButton />
-        </View>
-      </View>
-
       <View style={{ height: 40 }} />
     </ParallaxScrollView>
   );

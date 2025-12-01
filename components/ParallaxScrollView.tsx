@@ -1,6 +1,6 @@
 import { sessions } from "@/utils/sessions";
 import { Image } from "expo-image";
-import { PropsWithChildren } from "react";
+import { PropsWithChildren, ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, { interpolate, useAnimatedRef, useAnimatedStyle, useScrollOffset } from "react-native-reanimated";
 import Button from "./Button";
@@ -8,7 +8,11 @@ import Button from "./Button";
 export const blurhash = "LNF$b0%gNI9G_LRl-qRkIAIUxvoz";
 const HEADER_HEIGHT = 400;
 
-export default function ParallaxScrollView({ children }: PropsWithChildren) {
+type ParallaxScrollViewProps = PropsWithChildren<{
+    headerRight?: ReactNode;
+}>;
+
+export default function ParallaxScrollView({ children, headerRight }: ParallaxScrollViewProps) {
     const todaySession = sessions[Math.floor(Math.random() * sessions.length)];
     const scrollRef = useAnimatedRef<Animated.ScrollView>();
     const scrollOffset = useScrollOffset(scrollRef);
@@ -67,6 +71,11 @@ export default function ParallaxScrollView({ children }: PropsWithChildren) {
                     />
                 </Animated.View>
                 <View style={styles.headerContainer}>
+                    {headerRight && (
+                        <View style={styles.headerRightContainer}>
+                            {headerRight}
+                        </View>
+                    )}
 
                     <View style={{ flex: 1 }} />
 
@@ -119,5 +128,11 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         gap: 8,
+    },
+    headerRightContainer: {
+        position: "absolute",
+        top: 50,
+        right: 20,
+        zIndex: 10,
     }
 });
