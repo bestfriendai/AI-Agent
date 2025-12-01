@@ -61,6 +61,7 @@
         "@livekit/react-native-expo-plugin",
         "@elevenlabs/react-native"
       ],
+      "expo-brightness",
       "expo-web-browser"
     ],
     "experiments": {

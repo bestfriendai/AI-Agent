@@ -4,7 +4,8 @@ import { useUser } from "@clerk/clerk-expo";
 import { useConversation } from "@/hooks/useConversation";
 import * as Brightness from "expo-brightness";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import * as SecureStore from "expo-secure-store";
+import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import Button from "../Button";
 import { Gradient } from "../gradient";
@@ -13,7 +14,36 @@ export default function SessionScreen() {
     const { user, isLoaded } = useUser();
     const { sessionId } = useLocalSearchParams();
     const router = useRouter();
-    const session = sessions.find((s) => s.id === Number(sessionId)) ?? sessions[0];
+
+    // State for the session, defaulting to params or first session
+    const [currentSession, setCurrentSession] = useState(
+        sessions.find((s) => s.id === Number(sessionId)) ?? sessions[0]
+    );
+
+    useEffect(() => {
+        const manageSessionPersistence = async () => {
+            if (sessionId) {
+                // If sessionId is present in params, use it and persist it
+                const s = sessions.find((s) => s.id === Number(sessionId));
+                if (s) {
+                    setCurrentSession(s);
+                    await SecureStore.setItemAsync("last_session_id", String(s.id));
+                }
+            } else {
+                // If no sessionId in params (e.g. after reload), try to restore
+                try {
+                    const savedId = await SecureStore.getItemAsync("last_session_id");
+                    if (savedId) {
+                        const s = sessions.find((s) => s.id === Number(savedId));
+                        if (s) setCurrentSession(s);
+                    }
+                } catch (e) {
+                    console.warn("Failed to restore session ID", e);
+                }
+            }
+        };
+        manageSessionPersistence();
+    }, [sessionId]);
 
     const [isStarting, setIsStarting] = useState(false);
     const [conversationId, setConversationId] = useState<string | null>(null);
@@ -38,17 +68,21 @@ export default function SessionScreen() {
 
         clientTools: {
             handleSetBrightness: async (params: unknown) => {
-                const { brightnessValue } = params as { brightnessValue: number };
-                console.log("🌞 setting brightness to ", { brightnessValue });
-                const { status } = await Brightness.requestPermissionsAsync();
-                if (status === "granted") {
-                    await Brightness.setSystemBrightnessAsync(brightnessValue);
-                    return brightnessValue;
+                try {
+                    const { brightnessValue } = params as { brightnessValue: number };
+                    console.log("🌞 setting brightness to ", { brightnessValue });
+                    const { status } = await Brightness.requestPermissionsAsync();
+                    if (status === "granted") {
+                        await Brightness.setSystemBrightnessAsync(brightnessValue);
+                        return brightnessValue;
+                    }
+                } catch (e) {
+                    console.error("Error setting brightness:", e);
+                    return -1;
                 }
             }
         }
     });
-
 
     const startConversation = async () => {
         if (isStarting) return;
@@ -56,16 +90,29 @@ export default function SessionScreen() {
 
         try {
             setIsStarting(true);
+            const agentId = process.env.EXPO_PUBLIC_AGENT_ID;
+            if (!agentId) {
+                console.error("Missing EXPO_PUBLIC_AGENT_ID");
+                return;
+            }
+
+            console.log("Starting session with:", {
+                agentId,
+                username: user?.firstName,
+                title: currentSession.title,
+                description: currentSession.description
+            });
+
             await conversation.startSession({
-                agentId: process.env.EXPO_PUBLIC_AGENT_ID,
+                agentId,
                 dynamicVariables: {
                     username: user?.firstName || "user",
-                    session_title: session.title,
-                    session_description: session.description
+                    session_title: String(currentSession.title),
+                    session_description: String(currentSession.description)
                 }
             });
         } catch (e) {
-            console.log("Error starting conversation: ", e);
+            console.error("Error starting conversation: ", e);
         } finally {
             setIsStarting(false);
         }
@@ -99,8 +146,8 @@ export default function SessionScreen() {
                     alignItems: "center",
                     gap: 16,
                 }}>
-                <Text style={{ fontSize: 32, fontWeight: "bold" }}>{session.title}</Text>
-                <Text style={{ fontSize: 16, fontWeight: 500, opacity: 0.5 }}>{session.description}</Text>
+                <Text style={{ fontSize: 32, fontWeight: "bold" }}>{currentSession.title}</Text>
+                <Text style={{ fontSize: 16, fontWeight: 500, opacity: 0.5 }}>{currentSession.description}</Text>
                 <Button
                     onPress={conversation.status === 'connected' ? endConversation : startConversation}
                     disabled={isStarting || conversation.status === 'connecting'}
