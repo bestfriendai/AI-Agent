@@ -4,7 +4,7 @@
     "slug": "siora",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon-lotus.png",
+    "icon": "./assets/images/logo-mic.jpg",
     "scheme": "siora",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -15,7 +15,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/images/icon-lotus.png",
+        "foregroundImage": "./assets/images/adaptive-logo.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
