@@ -76,15 +76,89 @@ export function OAuthButton({ strategy, children, hideText, scheme }: Props) {
     }
 
     try {
-      const { createdSessionId, setActive } = await startOAuthFlow({
-        redirectUrl: Linking.createURL("", { scheme: scheme }),
+      const redirectUrl = Linking.createURL("oauth-native-callback", { scheme: scheme });
+
+
+      const { createdSessionId, signIn, signUp, setActive } = await startOAuthFlow({
+        redirectUrl: redirectUrl,
       });
 
-      if (createdSessionId && setActive) {
-        await setActive({ session: createdSessionId });
+
+
+
+
+      // Determine which session ID to use
+      let sessionId = createdSessionId;
+
+      // Check if session is in signIn object
+      if (!sessionId && signIn) {
+        if (signIn.createdSessionId) {
+          sessionId = signIn.createdSessionId;
+
+        } else if (signIn.status === 'complete' && (signIn as any).lastActiveSessionId) {
+          sessionId = (signIn as any).lastActiveSessionId;
+
+        }
+      }
+
+      // Check if session is in signUp object
+      if (!sessionId && signUp) {
+        if (signUp.createdSessionId) {
+          sessionId = signUp.createdSessionId;
+
+        } else if (signUp.status === 'complete' && (signUp as any).lastActiveSessionId) {
+          sessionId = (signUp as any).lastActiveSessionId;
+
+        }
+      }
+
+      // Activate the session
+      if (sessionId && setActive) {
+
+        await setActive({ session: sessionId });
+
+
+        // Try to dismiss the browser
+        try {
+          if (webBrowserAvailable && Platform.OS !== 'web') {
+            WebBrowser.dismissBrowser();
+
+          }
+        } catch (dismissErr) {
+          console.warn('Could not dismiss browser:', dismissErr);
+        }
+      } else if (signIn?.status === 'needs_identifier' || (signUp?.status as string) === 'needs_identifier') {
+        // OAuth callback didn't complete properly
+        console.error('❌ OAuth flow incomplete - status is "needs_identifier"');
+        console.error('This usually means:');
+        console.error('1. The OAuth callback URL is not properly configured in Clerk Dashboard');
+        console.error('2. The redirect URL does not match what is allowlisted in Clerk');
+        console.error('3. The browser did not properly redirect back to the app');
+        console.error('');
+        console.error('Expected redirect URL:', Linking.createURL("", { scheme: scheme }));
+        console.error('');
+        console.error('Please check:');
+        console.error('- Clerk Dashboard > Native applications > Allowlist for mobile SSO redirect');
+        console.error('- Add: siora://');
+        console.error('- Or add the full callback URL shown above');
+      } else if (setActive && (signIn?.status === 'complete' || signUp?.status === 'complete')) {
+        // If status is complete but no session ID found, log full objects for debugging
+        console.warn('Status is complete but no session ID found');
+        console.warn('Full signIn object:', JSON.stringify(signIn, null, 2));
+        console.warn('Full signUp object:', JSON.stringify(signUp, null, 2));
+      } else {
+        console.warn('OAuth completed but no session was created');
+        console.warn('Debug info:', {
+          createdSessionId,
+          signInSessionId: signIn?.createdSessionId,
+          signUpSessionId: signUp?.createdSessionId,
+          signInStatus: signIn?.status,
+          signUpStatus: signUp?.status,
+          hasSetActive: !!setActive
+        });
       }
     } catch (err) {
-      console.error("OAuth error", JSON.stringify(err));
+      console.error("OAuth error", JSON.stringify(err, null, 2));
     }
   }, [startOAuthFlow, scheme]);
 
