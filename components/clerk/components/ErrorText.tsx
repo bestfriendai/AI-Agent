@@ -1,15 +1,16 @@
+import { Ionicons } from '@expo/vector-icons'
 import React, { useEffect } from 'react'
 import { StyleSheet } from 'react-native'
-import Animated, { useSharedValue, withTiming, Easing, useAnimatedStyle } from 'react-native-reanimated'
-import { Ionicons } from '@expo/vector-icons'
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 
 interface Props {
   message: string
+  center?: boolean
 }
 
-function ErrorText({ message }: Props) {
+function ErrorText({ message, center }: Props) {
   const errorContainerHeight = useSharedValue(0)
-  
+
   // Define animated styles using Reanimated
   const errorOpacity = useSharedValue(0)
   const errorAnimatedStyle = useAnimatedStyle(() => {
@@ -41,7 +42,7 @@ function ErrorText({ message }: Props) {
       errorContainerHeight.value = withTiming(calculateErrorContainerHeight(), {
         duration: 300,
         easing: Easing.bezier(0.25, 0.1, 0.25, 1)
-      })  
+      })
     } else {
       errorOpacity.value = withTiming(0, {
         duration: 300,
@@ -55,11 +56,11 @@ function ErrorText({ message }: Props) {
   }, [message, errorOpacity, errorContainerHeight])
 
   if (!message) return null
-  
+
   return (
-    <Animated.View style={[styles.errorContainer, errorAnimatedStyle]}>
+    <Animated.View style={[styles.errorContainer, errorAnimatedStyle, center && { justifyContent: 'center' }]}>
       <Ionicons name="alert-circle" size={16} color="#D32F2F" style={{ marginTop: 2 }} />
-      <Animated.Text style={[styles.errorText]} numberOfLines={3}>
+      <Animated.Text style={[styles.errorText, center && { textAlign: 'center' }]} numberOfLines={3}>
         {message}
       </Animated.Text>
     </Animated.View>
@@ -78,10 +79,11 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     width: '100%',
-    paddingRight: 16,
+    paddingRight: 8,
     overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
+    marginBottom: 8,
   },
 })

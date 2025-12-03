@@ -5,14 +5,15 @@ import React, { ReactNode, useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
-  TouchableOpacity,
+  TouchableOpacity
 } from "react-native";
-import OTPInput from "../components/OTPInput";
 import ContinueButton from "../components/ContinueButton";
+import ErrorText from "../components/ErrorText";
 import Form from "../components/Form";
+import OTPInput from "../components/OTPInput";
 
 // Safely import expo-router
-let Router: any = { useRouter: () => ({ replace: () => {} }) };
+let Router: any = { useRouter: () => ({ replace: () => { } }) };
 try {
   Router = require("expo-router");
 } catch (error) {
@@ -28,9 +29,9 @@ interface VerifyEmailCodeProps {
   onSignInComplete: (sessionId: string) => void
 }
 
-function VerifyEmailCodeForm({ 
-  emailAddress, 
-  onSelectAlternateMethod, 
+function VerifyEmailCodeForm({
+  emailAddress,
+  onSelectAlternateMethod,
   onEditEmailAddress,
   onNewPasswordNeeded,
   onSignInComplete,
@@ -45,20 +46,21 @@ function VerifyEmailCodeForm({
   const environment = clerk.__unstable__environment as EnvironmentResource
 
   const [code, setCode] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [resendTimer, setResendTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
 
   const formTitle = selectedFactor?.strategy === 'phone_code' ? `Check your phone number` :
-    selectedFactor?.strategy === 'reset_password_email_code' ? `Reset password` : 
-    `Check your email`;
-  const formSubtitle = selectedFactor?.strategy === 'reset_password_email_code' ? `First, enter the code sent to your email address` : 
+    selectedFactor?.strategy === 'reset_password_email_code' ? `Reset password` :
+      `Check your email`;
+  const formSubtitle = selectedFactor?.strategy === 'reset_password_email_code' ? `First, enter the code sent to your email address` :
     `to continue to ${environment.displayConfig.applicationName}`;
-  
+
   // Set up the resend timer
   useEffect(() => {
     // Start with disabled resend
     setCanResend(false);
-    
+
     // Set up the timer
     const interval = setInterval(() => {
       setResendTimer((prevTimer) => {
@@ -70,7 +72,7 @@ function VerifyEmailCodeForm({
         return prevTimer - 1;
       });
     }, 1000);
-    
+
     // Clean up the interval
     return () => clearInterval(interval);
   }, []);
@@ -90,13 +92,26 @@ function VerifyEmailCodeForm({
       setResendTimer(30);
       setCanResend(false);
     } catch (err: any) {
-      console.error('signInError', JSON.stringify(err, null, 2));
+      console.error('signInError', err?.message || err);
     }
   }
 
   async function onContinuePressed() {
+    setErrorMessage("");
     if (!isLoaded || !signIn) {
       return
+    }
+
+    if (signIn.status === 'complete') {
+      if (signIn.createdSessionId) {
+        onSignInComplete(signIn.createdSessionId);
+      }
+      return;
+    }
+
+    if (!code || code.length < 6) {
+      setErrorMessage("Please enter a valid 6-digit code");
+      return;
     }
 
     try {
@@ -106,7 +121,7 @@ function VerifyEmailCodeForm({
         code: code
       })
 
-      console.log('completeSignIn', JSON.stringify(completeSignIn, null, 2))
+
 
       switch (completeSignIn.status) {
         case "complete":
@@ -116,11 +131,31 @@ function VerifyEmailCodeForm({
           onNewPasswordNeeded()
           break;
         default:
-          console.error('signInAttempt', JSON.stringify(completeSignIn, null, 2));
+          console.error('signInAttempt status:', completeSignIn.status);
           break;
       }
     } catch (err: any) {
-      console.error('signInError', JSON.stringify(err, null, 2));
+      console.error('signInError message:', err?.message);
+      // Check if user is already signed in
+      const isAlreadySignedIn = err?.errors?.some((e: any) => e.code === 'session_exists') ||
+        err?.message?.includes("already signed in");
+
+      if (isAlreadySignedIn) {
+        setErrorMessage("You are already signed in.");
+        if (signIn?.createdSessionId) {
+          onSignInComplete(signIn.createdSessionId);
+        } else if (clerk.client?.sessions?.length > 0) {
+          const lastSession = clerk.client.sessions[clerk.client.sessions.length - 1];
+          onSignInComplete(lastSession.id);
+        }
+        return;
+      }
+
+      if (err?.errors && err.errors.length > 0) {
+        setErrorMessage(err.errors[0].message);
+      } else {
+        setErrorMessage("An error occurred. Please try again.");
+      }
     }
   }
 
@@ -136,15 +171,20 @@ function VerifyEmailCodeForm({
   )
 
   return (
-    <Form 
-      title={formTitle} 
-      subtitle={formSubtitle} 
+    <Form
+      title={formTitle}
+      subtitle={formSubtitle}
       headerChildren={headerChildren}
     >
+      <ErrorText message={errorMessage} center />
       <OTPInput
         value={code}
-        onChange={(code) => setCode(code)}
+        onChange={(code) => {
+          setCode(code);
+          setErrorMessage("");
+        }}
       />
+
 
       <TouchableOpacity
         onPress={onResendPressed}
@@ -155,7 +195,7 @@ function VerifyEmailCodeForm({
           Didn't receive a code? {canResend ? "Resend" : `Resend (${resendTimer})`}
         </Text>
       </TouchableOpacity>
-      
+
       <ContinueButton
         onPress={onContinuePressed}
         disabled={!code || !isLoaded || !signIn}
