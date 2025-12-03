@@ -7,6 +7,7 @@ import {
 import ContinueButton from "../components/ContinueButton";
 import ErrorText from "../components/ErrorText";
 import Form from "../components/Form";
+import FormDivider from '../components/FormDivider';
 import Input from "../components/Input";
 import OAuthButtonRow from "../components/OAuthButtonRow";
 import TextButton from "../components/TextButton";
@@ -117,7 +118,7 @@ export function InitialSignInForm({
 
   return (
     <Form title={`Sign in to ${environment.displayConfig.applicationName}`} subtitle="Welcome back! Please sign in to continue">
-      <OAuthButtonRow scheme={scheme} showDivider={true} />
+
 
       <Input
         label={identifierLabel}
@@ -132,6 +133,9 @@ export function InitialSignInForm({
       <ErrorText message={errorMessage} />
 
       <ContinueButton onPress={onContinuePressed} disabled={!identifier} />
+
+      <FormDivider />
+      <OAuthButtonRow scheme={scheme} />
 
       <TextButton
         onPress={() => router.replace(signUpUrl)}

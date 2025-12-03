@@ -181,7 +181,10 @@ export function OAuthButton({ strategy, children, hideText, scheme }: Props) {
   }, [environment, strategy]);
 
   const buttonText = () => {
-    return providerInfo.name;
+    if (providerInfo.name === 'Google') {
+      return 'Continue with Google';
+    }
+    return `Continue with ${providerInfo.name}`;
   }
 
   return (
@@ -206,9 +209,9 @@ export function OAuthButton({ strategy, children, hideText, scheme }: Props) {
 const styles = StyleSheet.create({
   socialButton: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderRadius: 50,
     padding: 8,
-    height: 40,
+    height: 52,
     borderWidth: 1,
     borderColor: '#e6e8eb',
     shadowColor: '#000',
@@ -228,12 +231,12 @@ const styles = StyleSheet.create({
     gap: 8
   },
   providerLogo: {
-    width: 18,
-    height: 18,
+    width: 24,
+    height: 24,
   },
   buttonText: {
     color: '#24292f',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '500',
   },
 });

@@ -1,7 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native';
 
 interface Props {
-    title?: string
+  title?: string
 }
 
 function FormDivider({ title = "or" }: Props) {
@@ -20,7 +20,7 @@ const styles = StyleSheet.create({
   dividerContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 24,
+    marginTop: 24,
     gap: 4
   },
   dividerLine: {

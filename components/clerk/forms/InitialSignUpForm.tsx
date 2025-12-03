@@ -4,6 +4,7 @@ import { useState } from 'react';
 import ContinueButton from '../components/ContinueButton';
 import ErrorText from '../components/ErrorText';
 import Form from '../components/Form';
+import FormDivider from '../components/FormDivider';
 import Input from '../components/Input';
 import OAuthButtonRow from "../components/OAuthButtonRow";
 import TextButton from '../components/TextButton';
@@ -62,7 +63,7 @@ function InitialSignUpForm({
 
   return (
     <Form title={`Create Your ${environment.displayConfig.applicationName} Account`} subtitle="Welcome! Please fill in the details to get started.">
-      <OAuthButtonRow scheme={scheme} showDivider={true} />
+
 
       <Input
         label="Email address"
@@ -86,6 +87,9 @@ function InitialSignUpForm({
       <ErrorText message={erroredParams.includes('email_address') || erroredParams.includes('password') ? "" : errorMessage} />
 
       <ContinueButton onPress={onContinuePressed} disabled={!emailAddress || !password} />
+
+      <FormDivider />
+      <OAuthButtonRow scheme={scheme} />
 
       <TextButton
         onPress={() => router.replace(signInUrl)}

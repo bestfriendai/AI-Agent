@@ -1,13 +1,13 @@
-import React from 'react'
-import { View, StyleSheet } from 'react-native'
-import OAuthButton from './OAuthButton'
-import { EnvironmentResource, OAuthStrategy } from '@clerk/types'
 import { useClerk } from '@clerk/clerk-expo'
+import { EnvironmentResource, OAuthStrategy } from '@clerk/types'
+import React from 'react'
+import { StyleSheet, View } from 'react-native'
 import FormDivider from './FormDivider'
+import OAuthButton from './OAuthButton'
 
 interface Props {
-    scheme?: string
-    showDivider?: boolean
+  scheme?: string
+  showDivider?: boolean
 }
 
 function OAuthButtonRow({ scheme, showDivider }: Props) {
@@ -24,11 +24,11 @@ function OAuthButtonRow({ scheme, showDivider }: Props) {
   return (
     <>
       <View style={styles.socialButtonsContainer}>
-          {scheme && oauthStrategies.map((strategy: OAuthStrategy) => (
-              <View key={strategy} style={styles.socialButtonWrapper}>
-                  <OAuthButton strategy={strategy} hideText={oauthStrategies.length > 3} scheme={scheme} />
-              </View>
-          ))}
+        {scheme && oauthStrategies.map((strategy: OAuthStrategy) => (
+          <View key={strategy} style={styles.socialButtonWrapper}>
+            <OAuthButton strategy={strategy} hideText={oauthStrategies.length > 3} scheme={scheme} />
+          </View>
+        ))}
       </View>
       {showDivider && <FormDivider />}
     </>
@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
   socialButtonsContainer: {
     flexDirection: "row",
     gap: 12,
-    marginBottom: 24,
+    marginTop: 24,
   },
   socialButtonWrapper: {
     flex: 1,

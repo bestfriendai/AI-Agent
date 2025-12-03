@@ -31,12 +31,12 @@ export function Button({ children, variant = "primary", ...props }: Props) {
 
 const styles = StyleSheet.create({
   buttonContainer: {
-    borderRadius: 10,
+    borderRadius: 50,
     marginTop: 8,
     overflow: 'hidden',
   },
   secondaryWrapper: {
-    borderRadius: 10,
+    borderRadius: 50,
     padding: 16,
     alignItems: "center",
     justifyContent: "center",
