@@ -122,6 +122,7 @@ export function InitialSignInForm({
 
       <Input
         label={identifierLabel}
+        icon="mail-outline"
         autoCapitalize="none"
         value={identifier}
         onChangeText={(identifier) => setIdentifier(identifier)}

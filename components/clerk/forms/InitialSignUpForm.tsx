@@ -67,6 +67,7 @@ function InitialSignUpForm({
 
       <Input
         label="Email address"
+        icon="mail-outline"
         autoCapitalize="none"
         value={emailAddress}
         onChangeText={(email: string) => setEmailAddress(email)}
@@ -76,6 +77,7 @@ function InitialSignUpForm({
       />
       <Input
         label="Password"
+        icon="lock-closed-outline"
         value={password}
         secureTextEntry={true}
         onChangeText={(password: string) => setPassword(password)}
