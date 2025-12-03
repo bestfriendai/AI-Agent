@@ -5,10 +5,12 @@ import { colors } from "@/utils/colors";
 import { sessions } from "@/utils/sessions";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
+import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Query } from "react-native-appwrite";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
@@ -41,18 +43,10 @@ export default function Index() {
   return (
     <ParallaxScrollView headerRight={<ProfileIcon />}>
       <Text style={styles.title}>Explore Sessions</Text>
-      <ScrollView
-        contentContainerStyle={{
-          paddingLeft: 16,
-          gap: 16,
-        }}
-        horizontal
-        contentInsetAdjustmentBehavior="automatic"
-        showsHorizontalScrollIndicator={false}
-      >
-        {sessions.map((session) => (
+      <FlashList<typeof sessions[0]>
+        data={sessions}
+        renderItem={({ item: session }) => (
           <Pressable
-            key={session.id}
             style={styles.sessionContainer}
             onPress={() =>
               router.navigate({
@@ -68,21 +62,30 @@ export default function Index() {
               transition={1000}
               placeholder={{ blurhash }}
             />
-            <View
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.5)']}
               style={{
                 position: "absolute",
                 width: "100%",
                 height: "100%",
-                experimental_backgroundImage:
-                  "linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.5))",
                 borderRadius: 16,
+                justifyContent: 'flex-end',
               }}
             >
               <Text style={styles.sessionTitle}>{session.title}</Text>
-            </View>
+            </LinearGradient>
           </Pressable>
-        ))}
-      </ScrollView>
+        )}
+        // @ts-ignore
+        estimatedItemSize={266}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingLeft: 16,
+          paddingRight: 16,
+        }}
+        ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
+      />
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Recent History</Text>

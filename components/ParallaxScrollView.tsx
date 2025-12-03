@@ -1,6 +1,7 @@
 import { sessions } from "@/utils/sessions";
 import { Image } from "expo-image";
-import { PropsWithChildren, ReactNode } from "react";
+import { LinearGradient } from "expo-linear-gradient";
+import { PropsWithChildren, ReactNode, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, { interpolate, useAnimatedRef, useAnimatedStyle, useScrollOffset } from "react-native-reanimated";
 import Button from "./Button";
@@ -13,7 +14,7 @@ type ParallaxScrollViewProps = PropsWithChildren<{
 }>;
 
 export default function ParallaxScrollView({ children, headerRight }: ParallaxScrollViewProps) {
-    const todaySession = sessions[Math.floor(Math.random() * sessions.length)];
+    const todaySession = useMemo(() => sessions[Math.floor(Math.random() * sessions.length)], []);
     const scrollRef = useAnimatedRef<Animated.ScrollView>();
     const scrollOffset = useScrollOffset(scrollRef);
 
@@ -70,7 +71,10 @@ export default function ParallaxScrollView({ children, headerRight }: ParallaxSc
                         style={{ width: "100%", height: HEADER_HEIGHT }}
                     />
                 </Animated.View>
-                <View style={styles.headerContainer}>
+                <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.5)']}
+                    style={styles.headerContainer}
+                >
                     {headerRight && (
                         <View style={styles.headerRightContainer}>
                             {headerRight}
@@ -90,7 +94,7 @@ export default function ParallaxScrollView({ children, headerRight }: ParallaxSc
                     </View>
 
 
-                </View>
+                </LinearGradient>
                 {children}
             </Animated.ScrollView>
         </View>
@@ -120,8 +124,6 @@ const styles = StyleSheet.create({
         position: "absolute",
         width: '100%',
         height: HEADER_HEIGHT,
-        experimental_backgroundImage:
-            "linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.5))"
     },
     headerContent: {
         flex: 1,
