@@ -1,4 +1,5 @@
 import { sessions } from "@/utils/sessions";
+import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { PropsWithChildren, ReactNode, useMemo } from "react";
@@ -72,9 +73,14 @@ export default function ParallaxScrollView({ children, headerRight }: ParallaxSc
                     />
                 </Animated.View>
                 <LinearGradient
-                    colors={['transparent', 'rgba(0,0,0,0.5)']}
+                    colors={['rgba(0,0,0,0.0)', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.55)']}
                     style={styles.headerContainer}
                 >
+                    <View style={styles.headerLeftGlassContainer}>
+                        <BlurView intensity={40} tint="dark" style={styles.glassBadge}>
+                            <Text style={styles.glassText}>Siora</Text>
+                        </BlurView>
+                    </View>
                     {headerRight && (
                         <View style={styles.headerRightContainer}>
                             {headerRight}
@@ -83,15 +89,15 @@ export default function ParallaxScrollView({ children, headerRight }: ParallaxSc
 
                     <View style={{ flex: 1 }} />
 
-                    <View style={styles.headerContent}>
-                        <Text style={styles.headerSubtitle}>Featured Session</Text>
-                        <Text style={styles.headerTitle}>{todaySession.title}</Text>
-                        <Text style={styles.headerDescription}>{todaySession.description}</Text>
-                        <Button>
-                            Start Session
-                        </Button>
-                        <View style={{ flex: 1 }} />
-                    </View>
+                        <View style={styles.headerContent}>
+                            <Text style={styles.headerSubtitle}>Featured Session</Text>
+                            <Text style={styles.headerTitle}>{todaySession.title}</Text>
+                            <Text style={styles.headerDescription}>{todaySession.description}</Text>
+                            <Button>
+                                Start Session
+                            </Button>
+                            <View style={{ flex: 1 }} />
+                        </View>
 
 
                 </LinearGradient>
@@ -125,6 +131,12 @@ const styles = StyleSheet.create({
         width: '100%',
         height: HEADER_HEIGHT,
     },
+    headerLeftGlassContainer: {
+        position: "absolute",
+        top: 50,
+        left: 20,
+        zIndex: 10,
+    },
     headerContent: {
         flex: 1,
         justifyContent: "center",
@@ -136,5 +148,22 @@ const styles = StyleSheet.create({
         top: 50,
         right: 20,
         zIndex: 10,
-    }
+    },
+    glassBadge: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderTopLeftRadius: 18,
+        borderTopRightRadius: 20,
+        borderBottomLeftRadius: 18,
+        borderBottomRightRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.25)',
+        overflow: 'hidden',
+    },
+    glassText: {
+        color: '#FFFFFF',
+        fontWeight: '700',
+        letterSpacing: 0.5,
+    },
 });
