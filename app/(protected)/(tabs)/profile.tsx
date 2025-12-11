@@ -135,9 +135,12 @@ export default function ProfileScreen() {
                     end={{ x: 1, y: 1 }}
                 />
                 {/* New Pattern: Concentric Rings */}
-                <View style={styles.ring1} />
+                {/* <View style={styles.ring1} />
                 <View style={styles.ring2} />
-                <View style={styles.ring3} />
+                <View style={styles.ring3} /> */}
+                <View style={styles.blob1} />
+                <View style={styles.blob2} />
+                <View style={styles.blob3} />
             </View>
 
             <SafeAreaView style={styles.safeArea} edges={["top"]}>
@@ -204,7 +207,7 @@ export default function ProfileScreen() {
                                 <Text style={styles.bannerTitle}>exclusive</Text>
                                 <View style={styles.bannerRow}>
                                     <View style={styles.logoBadge}>
-                                        <Text style={styles.logoText}>GD</Text>
+                                        <Text style={styles.logoText}>GO</Text>
                                     </View>
                                     <Text style={styles.bannerSubtitle}>widgets</Text>
                                 </View>
@@ -280,7 +283,7 @@ const styles = StyleSheet.create({
         width: 400,
         height: 400,
         borderRadius: 200,
-        borderWidth: 1,
+        borderWidth: 2,
         borderColor: 'rgba(255,255,255,0.1)',
         opacity: 0.8,
     },
@@ -291,7 +294,7 @@ const styles = StyleSheet.create({
         width: 300,
         height: 300,
         borderRadius: 150,
-        borderWidth: 1,
+        borderWidth: 2,
         borderColor: 'rgba(255,255,255,0.15)',
         opacity: 0.6,
     },
@@ -302,7 +305,7 @@ const styles = StyleSheet.create({
         width: 200,
         height: 200,
         borderRadius: 100,
-        borderWidth: 1,
+        borderWidth: 2,
         borderColor: 'rgba(255,255,255,0.2)',
         opacity: 0.4,
     },
@@ -355,8 +358,8 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     editProfileButton: {
-        paddingHorizontal: 20,
-        paddingVertical: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
         backgroundColor: 'rgba(255,255,255,0.1)',
         borderRadius: 20,
         borderWidth: 1,
@@ -377,8 +380,8 @@ const styles = StyleSheet.create({
     statsRow: {
         flexDirection: 'row',
         paddingHorizontal: 24,
-        gap: 16,
-        marginBottom: 16,
+        gap: 12,
+        marginBottom: 12,
     },
     glassCardWrapper: {
         overflow: 'hidden',
@@ -391,7 +394,7 @@ const styles = StyleSheet.create({
     },
     statCard: {
         flex: 1,
-        height: 100,
+        height: 90,
         justifyContent: 'space-between',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.25)', // From Siora Badge
@@ -437,12 +440,12 @@ const styles = StyleSheet.create({
     },
     bannerContainer: {
         marginHorizontal: 24,
-        marginBottom: 32,
+        marginBottom: 24,
     },
     banner: {
         borderRadius: 24,
-        padding: 24,
-        height: 140,
+        padding: 20,
+        height: 120,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -451,10 +454,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     bannerTitle: {
-        fontSize: 36,
+        fontSize: 28,
         fontWeight: '900',
         color: '#111827',
-        lineHeight: 36,
+        lineHeight: 28,
         letterSpacing: -1,
     },
     bannerRow: {
@@ -475,10 +478,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     bannerSubtitle: {
-        fontSize: 36,
+        fontSize: 28,
         fontWeight: '900',
         color: '#111827',
-        lineHeight: 36,
+        lineHeight: 30,
         letterSpacing: -1,
     },
     bannerImage: {
@@ -532,5 +535,37 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 10,
+    },
+    blob1: {
+        position: 'absolute',
+        top: -120,
+        right: -80,
+        width: 280,
+        height: 280,
+        backgroundColor: 'rgba(255, 180, 80, 0.25)',
+        borderRadius: 200,
+        filter: 'blur(60px)'
+    },
+
+    blob2: {
+        position: 'absolute',
+        top: 40,
+        right: -40,
+        width: 240,
+        height: 240,
+        backgroundColor: 'rgba(150, 100, 255, 0.25)',
+        borderRadius: 200,
+        filter: 'blur(70px)'
+    },
+
+    blob3: {
+        position: 'absolute',
+        top: -40,
+        right: 120,
+        width: 200,
+        height: 200,
+        backgroundColor: 'rgba(255, 255, 255, 0.18)',
+        borderRadius: 200,
+        filter: 'blur(50px)'
     },
 });
