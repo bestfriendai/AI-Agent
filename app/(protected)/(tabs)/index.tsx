@@ -1,5 +1,4 @@
 import ParallaxScrollView, { blurhash } from "@/components/ParallaxScrollView";
-import ProfileIcon from "@/components/ProfileIcon";
 import { appwriteConfig, database, Session } from "@/utils/appwrite";
 import { colors } from "@/utils/colors";
 import { sessions } from "@/utils/sessions";
@@ -41,7 +40,7 @@ export default function Index() {
     }
 
     return (
-        <ParallaxScrollView headerRight={<ProfileIcon />}>
+        <ParallaxScrollView>
             <Text style={styles.title}>Explore Sessions</Text>
             <FlashList<typeof sessions[0]>
                 data={sessions}

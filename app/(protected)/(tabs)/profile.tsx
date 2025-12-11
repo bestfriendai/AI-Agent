@@ -8,6 +8,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+    ActivityIndicator,
     Alert,
     Dimensions,
     ScrollView,
@@ -125,7 +126,6 @@ export default function ProfileScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Header Background Gradient (Top Half) */}
             {/* Header Background Gradient (Top Half) - Static & Darker */}
             <View style={styles.headerBackground}>
                 <LinearGradient
@@ -142,20 +142,34 @@ export default function ProfileScreen() {
 
             <SafeAreaView style={styles.safeArea} edges={["top"]}>
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                    {/* Loading State Overlay */}
+                    {isLoading && (
+                        <View style={styles.loadingOverlay}>
+                            <ActivityIndicator size="large" color="#fff" />
+                        </View>
+                    )}
 
                     {/* Header Section */}
                     <Animated.View entering={FadeInDown.springify()} style={styles.headerSection}>
                         <View style={styles.avatarContainer}>
-                            <View style={styles.avatarBorder}>
+                            <View style={styles.avatarRing}>
                                 <Image
                                     source={user?.imageUrl}
                                     style={styles.avatar}
                                     contentFit="cover"
                                 />
                             </View>
+                            <View style={styles.verifiedBadge}>
+                                <Ionicons name="checkmark-circle" size={22} color="#60A5FA" />
+                            </View>
                         </View>
+
                         <Text style={styles.userName}>{user?.firstName} {user?.lastName}</Text>
-                        <View style={styles.divider} />
+                        <Text style={styles.userHandle}>{user?.primaryEmailAddress?.emailAddress}</Text>
+
+                        <TouchableOpacity style={styles.editProfileButton}>
+                            <Text style={styles.editProfileText}>Edit Profile</Text>
+                        </TouchableOpacity>
                     </Animated.View>
 
                     {/* Stats Section */}
@@ -296,44 +310,62 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        paddingTop: 40,
+        paddingTop: 60,
     },
     headerSection: {
         marginTop: 20,
         paddingHorizontal: 24,
         marginBottom: 24,
+        alignItems: 'center',
     },
     avatarContainer: {
         marginBottom: 16,
+        position: 'relative',
     },
-    avatarBorder: {
-        width: 90,
-        height: 90,
-        borderRadius: 45,
-        backgroundColor: '#fff',
-        padding: 3,
-        justifyContent: 'center',
-        alignItems: 'center',
+    avatarRing: {
+        padding: 4,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 60,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
     },
     avatar: {
-        width: '100%',
-        height: '100%',
+        width: 100,
+        height: 100,
         borderRadius: 50,
-        backgroundColor: '#E0E7FF',
+    },
+    verifiedBadge: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        overflow: 'hidden',
     },
     userName: {
-        fontSize: 32,
+        fontSize: 28,
         fontWeight: '800',
         color: '#fff',
+        marginBottom: 4,
+        letterSpacing: -0.5,
+    },
+    userHandle: {
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.6)',
         marginBottom: 20,
     },
-    divider: {
-        height: 1,
-        backgroundColor: 'rgba(255,255,255,0.3)',
-        width: '100%',
-        borderStyle: 'dashed',
+    editProfileButton: {
+        paddingHorizontal: 20,
+        paddingVertical: 8,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 20,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.3)',
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    editProfileText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
     },
     sectionTitle: {
         fontSize: 20,
@@ -453,7 +485,7 @@ const styles = StyleSheet.create({
         opacity: 0.8,
     },
     bottomSheet: {
-        backgroundColor: '#fff',
+        backgroundColor: '#fffffff9',
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         padding: 24,
@@ -490,5 +522,15 @@ const styles = StyleSheet.create({
         marginTop: 32,
         color: '#9CA3AF',
         fontSize: 13,
+    },
+    loadingOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 200,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
     },
 });
