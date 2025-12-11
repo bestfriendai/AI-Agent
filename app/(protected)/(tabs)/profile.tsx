@@ -129,7 +129,7 @@ export default function ProfileScreen() {
             {/* Header Background Gradient (Top Half) - Static & Darker */}
             <View style={styles.headerBackground}>
                 <LinearGradient
-                    colors={['#1e3a8a', '#172554', '#0f172a']}
+                    colors={['#2E3A68', '#202B55', '#131A3A']}
                     style={StyleSheet.absoluteFill}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
@@ -313,13 +313,13 @@ const styles = StyleSheet.create({
         paddingTop: 60,
     },
     headerSection: {
-        marginTop: 20,
+        marginTop: 10,
         paddingHorizontal: 24,
-        marginBottom: 24,
+        marginBottom: 16,
         alignItems: 'center',
     },
     avatarContainer: {
-        marginBottom: 16,
+        marginBottom: 8,
         position: 'relative',
     },
     avatarRing: {
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     userHandle: {
         fontSize: 14,
         color: 'rgba(255,255,255,0.6)',
-        marginBottom: 20,
+        marginBottom: 12,
     },
     editProfileButton: {
         paddingHorizontal: 20,
