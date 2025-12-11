@@ -81,23 +81,18 @@ export default function ParallaxScrollView({ children, headerRight }: ParallaxSc
                             <Text style={styles.glassText}>Siora</Text>
                         </BlurView>
                     </View>
-                    {headerRight && (
-                        <View style={styles.headerRightContainer}>
-                            {headerRight}
-                        </View>
-                    )}
 
                     <View style={{ flex: 1 }} />
 
-                        <View style={styles.headerContent}>
-                            <Text style={styles.headerSubtitle}>Featured Session</Text>
-                            <Text style={styles.headerTitle}>{todaySession.title}</Text>
-                            <Text style={styles.headerDescription}>{todaySession.description}</Text>
-                            <Button>
-                                Start Session
-                            </Button>
-                            <View style={{ flex: 1 }} />
-                        </View>
+                    <View style={styles.headerContent}>
+                        <Text style={styles.headerSubtitle}>Featured Session</Text>
+                        <Text style={styles.headerTitle}>{todaySession.title}</Text>
+                        <Text style={styles.headerDescription}>{todaySession.description}</Text>
+                        <Button>
+                            Start Session
+                        </Button>
+                        <View style={{ flex: 1 }} />
+                    </View>
 
 
                 </LinearGradient>
