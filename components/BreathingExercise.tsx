@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Text as RNText, StyleSheet, TouchableOpacity, View } from 'react-native';
 import Animated, {
     Easing,
     interpolate,
@@ -20,21 +20,55 @@ import Svg, { Path } from 'react-native-svg';
 const { width } = Dimensions.get('window');
 const BLOB_SIZE = width * 1.5;
 
-export default function BreathingExercise() {
+interface BreathingExerciseProps {
+    session?: {
+        title?: string;
+        accentColor?: string;
+        duration?: string;
+    }
+}
+
+export default function BreathingExercise({ session }: BreathingExerciseProps) {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const progress = useSharedValue(0);
     const isInhaling = useSharedValue(true);
     const [instruction, setInstruction] = useState('Breathe in');
 
+    // Timer Logic
+    const durationString = session?.duration || '3 min';
+    const initialSeconds = parseInt(durationString) * 60;
+    const [remainingSeconds, setRemainingSeconds] = useState(initialSeconds || 180);
+
+    const blobColor = session?.accentColor || colors.teal;
+
     useEffect(() => {
+        const timer = setInterval(() => {
+            setRemainingSeconds((prev) => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    router.back();
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
         const duration = 4000;
         progress.value = withRepeat(
             withTiming(1, { duration, easing: Easing.inOut(Easing.quad) }),
             -1, // infinite
             true // reverse
         );
+
+        return () => clearInterval(timer);
     }, []);
+
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
 
     useDerivedValue(() => {
         if (isInhaling.value && progress.value >= 0.95) {
@@ -85,13 +119,17 @@ export default function BreathingExercise() {
             </TouchableOpacity>
 
             <View style={styles.textContainer}>
+                {session?.title && (
+                    <RNText style={styles.sessionTitle}>{session.title}</RNText>
+                )}
                 <Animated.Text style={[styles.instructionText, textAnimatedStyle]}>
                     {instruction}
                 </Animated.Text>
+                <RNText style={styles.timerText}>{formatTime(remainingSeconds)}</RNText>
             </View>
 
             <Animated.View style={[styles.blobContainer, blobAnimatedStyle]}>
-                <View style={styles.blob} />
+                <View style={[styles.blob, { backgroundColor: blobColor }]} />
                 <Animated.View style={[styles.faceContainer, faceAnimatedStyle]}>
                     <Svg height="100" width="160" viewBox="0 0 160 100">
                         {/* Left Eye */}
@@ -143,6 +181,19 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#4a4a4a',
         letterSpacing: 0.5,
+    },
+    sessionTitle: {
+        fontSize: 18,
+        color: '#666',
+        marginBottom: 8,
+        fontWeight: '500',
+    },
+    timerText: {
+        marginTop: 12,
+        fontSize: 16,
+        color: '#888',
+        fontWeight: '500',
+        fontVariant: ['tabular-nums'],
     },
     blobContainer: {
         width: BLOB_SIZE,

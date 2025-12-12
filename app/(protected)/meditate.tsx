@@ -1,11 +1,14 @@
 import BreathingExercise from '@/components/BreathingExercise';
+import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export default function MeditateScreen() {
+    const params = useLocalSearchParams();
+
     return (
         <View style={styles.container}>
-            <BreathingExercise />
+            <BreathingExercise session={params} />
         </View>
     );
 }
