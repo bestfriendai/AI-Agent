@@ -1,5 +1,6 @@
 import { colors } from '@/utils/colors';
 import { Ionicons } from '@expo/vector-icons';
+import { Audio } from 'expo-av'; // Import Audio
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -25,6 +26,7 @@ interface BreathingExerciseProps {
         title?: string;
         accentColor?: string;
         duration?: string;
+        audioUri?: string; // Add audioUri
     }
 }
 
@@ -41,6 +43,39 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
     const [remainingSeconds, setRemainingSeconds] = useState(initialSeconds || 180);
 
     const blobColor = session?.accentColor || colors.teal;
+
+    // Audio Playback Logic
+    useEffect(() => {
+        let soundObject: Audio.Sound | null = null;
+
+        const loadAndPlaySound = async () => {
+            if (session?.audioUri) {
+                try {
+                    console.log('Loading Sound:', session.audioUri);
+                    const { sound } = await Audio.Sound.createAsync(
+                        { uri: session.audioUri },
+                        { shouldPlay: true, isLooping: true, volume: 0.5 } // Set reasonable volume
+                    );
+                    soundObject = sound;
+                    console.log('Sound loaded and playing');
+                } catch (error) {
+                    console.log('Error loading sound', error);
+                }
+            }
+        };
+
+        loadAndPlaySound();
+
+        return () => {
+            // Cleanup: Stop and unload the sound
+            if (soundObject) {
+                console.log('Unloading Sound');
+                soundObject.stopAsync().then(() => {
+                    soundObject?.unloadAsync();
+                });
+            }
+        };
+    }, [session?.audioUri]);
 
     useEffect(() => {
         const timer = setInterval(() => {
