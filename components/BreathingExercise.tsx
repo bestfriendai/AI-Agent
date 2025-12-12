@@ -1,6 +1,6 @@
 import { colors } from '@/utils/colors';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av'; // Import Audio
+import { Audio } from 'expo-av';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -26,7 +26,8 @@ interface BreathingExerciseProps {
         title?: string;
         accentColor?: string;
         duration?: string;
-        audioUri?: string; // Add audioUri
+        audioUri?: string;
+        playAudio?: string; // Receive as string from params
     }
 }
 
@@ -44,30 +45,34 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
 
     const blobColor = session?.accentColor || colors.teal;
 
-    // Audio Playback Logic
+    // Audio State
+    const [isAudioEnabled, setIsAudioEnabled] = useState(session?.playAudio === 'true');
+    const [sound, setSound] = useState<Audio.Sound | null>(null);
+
+    // Audio Playback Hook
     useEffect(() => {
         let soundObject: Audio.Sound | null = null;
 
-        const loadAndPlaySound = async () => {
+        const loadSound = async () => {
             if (session?.audioUri) {
                 try {
                     console.log('Loading Sound:', session.audioUri);
-                    const { sound } = await Audio.Sound.createAsync(
+                    const { sound: newSound } = await Audio.Sound.createAsync(
                         { uri: session.audioUri },
-                        { shouldPlay: true, isLooping: true, volume: 0.5 } // Set reasonable volume
+                        { shouldPlay: isAudioEnabled, isLooping: true, volume: 0.5 }
                     );
-                    soundObject = sound;
-                    console.log('Sound loaded and playing');
+                    soundObject = newSound;
+                    setSound(newSound);
+                    console.log('Sound loaded');
                 } catch (error) {
                     console.log('Error loading sound', error);
                 }
             }
         };
 
-        loadAndPlaySound();
+        loadSound();
 
         return () => {
-            // Cleanup: Stop and unload the sound
             if (soundObject) {
                 console.log('Unloading Sound');
                 soundObject.stopAsync().then(() => {
@@ -76,6 +81,22 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
             }
         };
     }, [session?.audioUri]);
+
+    // Handle Mute/Unmute
+    useEffect(() => {
+        if (sound) {
+            if (isAudioEnabled) {
+                sound.playAsync().catch(e => console.log('Play error', e));
+            } else {
+                sound.pauseAsync().catch(e => console.log('Pause error', e));
+            }
+        }
+    }, [isAudioEnabled, sound]);
+
+    // Toggle Handler
+    const toggleAudio = () => {
+        setIsAudioEnabled((prev) => !prev);
+    };
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -152,6 +173,23 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
                     <Ionicons name="chevron-back" size={24} color="#1a1a1a" />
                 </BlurView>
             </TouchableOpacity>
+
+            {/* Audio Toggle Button */}
+            {session?.audioUri && (
+                <TouchableOpacity
+                    style={[styles.audioButton, { top: insets.top + 10 }]}
+                    onPress={toggleAudio}
+                    activeOpacity={0.7}
+                >
+                    <BlurView intensity={100} tint="extraLight" style={styles.blurContent}>
+                        <Ionicons
+                            name={isAudioEnabled ? "volume-high" : "volume-mute"}
+                            size={24}
+                            color="#1a1a1a"
+                        />
+                    </BlurView>
+                </TouchableOpacity>
+            )}
 
             <View style={styles.textContainer}>
                 {session?.title && (
@@ -251,6 +289,14 @@ const styles = StyleSheet.create({
     backButton: {
         position: 'absolute',
         left: 20,
+        zIndex: 50,
+        borderRadius: 50,
+        overflow: 'hidden',
+    },
+    // New Audio Button Styles
+    audioButton: {
+        position: 'absolute',
+        right: 20,
         zIndex: 50,
         borderRadius: 50,
         overflow: 'hidden',

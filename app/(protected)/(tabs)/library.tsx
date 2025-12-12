@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -60,11 +62,26 @@ const SESSIONS = [
 
 export default function LibraryScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
+
+    // State for modal
+    const [selectedSession, setSelectedSession] = useState<typeof SESSIONS[0] | null>(null);
+    const [modalVisible, setModalVisible] = useState(false);
 
     const handleSessionPress = (session: typeof SESSIONS[0]) => {
+        setSelectedSession(session);
+        setModalVisible(true);
+    };
+
+    const startSession = (withAudio: boolean) => {
+        if (!selectedSession) return;
+        setModalVisible(false);
         router.push({
             pathname: '/meditate',
-            params: { ...session },
+            params: {
+                ...selectedSession,
+                playAudio: withAudio ? 'true' : 'false' // Pass as string param
+            },
         });
     };
 
@@ -74,19 +91,31 @@ export default function LibraryScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="chevron-back" size={24} color="#1F2937" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Meditate</Text>
-                <View style={{ width: 24 }} />
-            </View>
+            {/* iOS Premium Glass Header */}
+            <BlurView
+                intensity={90}
+                tint="light"
+                style={[styles.glassHeader, { paddingTop: insets.top }]}
+            >
+                <View style={styles.headerContent}>
+                    <TouchableOpacity style={styles.circleButton} activeOpacity={0.7}>
+                        <Ionicons name="arrow-back" size={20} color="#4B5563" />
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>Meditate</Text>
+                    <TouchableOpacity style={styles.circleButton} activeOpacity={0.7}>
+                        <Ionicons name="search" size={20} color="#4B5563" />
+                    </TouchableOpacity>
+                </View>
+            </BlurView>
 
             <ScrollView
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[
+                    styles.scrollContent,
+                    { paddingTop: insets.top + 80 } // Push content down below header
+                ]}
                 showsVerticalScrollIndicator={false}
             >
+
                 {/* Session List */}
                 <View style={styles.cardList}>
                     {SESSIONS.map((session, index) => (
@@ -159,6 +188,54 @@ export default function LibraryScreen() {
 
                 <View style={{ height: 40 }} />
             </ScrollView>
+
+            {/* Audio Option Modal */}
+            <Modal
+                visible={modalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setModalVisible(false)}
+                >
+                    <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+
+                    <TouchableOpacity
+                        activeOpacity={1}
+                        onPress={(e) => e.stopPropagation()}
+                    >
+                        <View style={styles.alertContainer}>
+                            <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
+
+                            <View style={styles.alertContent}>
+                                <Text style={styles.alertTitle}>Start Session</Text>
+                                <Text style={styles.alertMessage}>Would you like to play background audio?</Text>
+                            </View>
+
+                            <View style={styles.alertButtons}>
+                                <TouchableOpacity
+                                    style={styles.alertButton}
+                                    onPress={() => startSession(false)}
+                                >
+                                    <Text style={styles.alertButtonTextCancel}>No, Silent</Text>
+                                </TouchableOpacity>
+
+                                <View style={styles.alertButtonSeparator} />
+
+                                <TouchableOpacity
+                                    style={styles.alertButton}
+                                    onPress={() => startSession(true)}
+                                >
+                                    <Text style={styles.alertButtonTextConfirm}>Play Audio</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
         </View>
     );
 }
@@ -167,27 +244,45 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
-        paddingTop: 50,
     },
-    header: {
+    glassHeader: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+    },
+    headerContent: {
+        height: 52, // Slightly taller
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 24,
-        marginBottom: 24,
+        paddingHorizontal: 16,
     },
-    backButton: {
-        padding: 4,
+    circleButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.05)', // Subtle touch
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    // Enhanced Header Title
     headerTitle: {
-        fontSize: 28, // Bigger and bolder
-        fontWeight: '800',
+        fontSize: 17,
+        fontWeight: '600',
         color: '#1F2937',
     },
     scrollContent: {
         paddingHorizontal: 24,
         paddingBottom: 40,
+    },
+    largeTitle: {
+        fontSize: 34,
+        fontWeight: '700',
+        color: '#1F2937',
+        marginBottom: 20,
+        marginTop: 10,
+        letterSpacing: 0.35,
     },
     cardList: {
         gap: 20, // Increased gap for breathability
@@ -197,12 +292,8 @@ const styles = StyleSheet.create({
         borderRadius: 24, // Softer, more modern radius
         overflow: 'visible', // Must be visible for shadow to show properly
         minHeight: 120,
-        // Subtle Shadow for Depth
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.08,
-        shadowRadius: 10,
-        elevation: 8,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
     },
     cardContent: {
         flexDirection: 'row',
@@ -216,7 +307,6 @@ const styles = StyleSheet.create({
         padding: 20,
         paddingRight: 8,
     },
-    // Enhanced Card Title
     cardTitle: {
         fontSize: 20, // Slightly larger
         fontWeight: '700',
@@ -229,7 +319,6 @@ const styles = StyleSheet.create({
         lineHeight: 20,
         marginBottom: 16, // Increased space below description
     },
-    // Enhanced Duration Badge (Pill Shape)
     durationBadge: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -272,7 +361,6 @@ const styles = StyleSheet.create({
     groupSection: {
         marginTop: 8,
     },
-    // Enhanced Group Title
     groupTitle: {
         fontSize: 24, // Bigger size for better section hierarchy
         fontWeight: '700',
@@ -295,7 +383,6 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         lineHeight: 24, // Better line height for readability
     },
-    // Enhanced Remind Button (Pill shape, new primary color)
     remindButton: {
         backgroundColor: '#4C51BF', // Deep Indigo/Purple
         paddingVertical: 14, // Taller button
@@ -313,7 +400,6 @@ const styles = StyleSheet.create({
         height: 100,
         position: 'relative',
     },
-    // Enhanced Avatar Bubbles
     avatarBubble: {
         width: 48, // Slightly larger
         height: 48,
@@ -323,5 +409,70 @@ const styles = StyleSheet.create({
         position: 'absolute',
         borderWidth: 3, // Thicker white border
         borderColor: '#fff',
+    },
+    modalOverlay: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.4)',
+    },
+    alertContainer: {
+        width: 270,
+        borderRadius: 14,
+        overflow: 'hidden',
+        backgroundColor: 'rgba(245,245,245,0.85)', // Fallback if blur fails or enhances effect
+    },
+    alertContent: {
+        paddingTop: 20,
+        paddingHorizontal: 16,
+        paddingBottom: 20,
+        alignItems: 'center',
+    },
+    alertTitle: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#000',
+        textAlign: 'center',
+        marginBottom: 4,
+    },
+    alertMessage: {
+        fontSize: 13,
+        color: '#000',
+        textAlign: 'center',
+        lineHeight: 18,
+    },
+    alertButtons: {
+        flexDirection: 'row',
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: '#3C3C4336', // Standard iOS separator color
+    },
+    alertButton: {
+        flex: 1,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    alertButtonSeparator: {
+        width: StyleSheet.hairlineWidth,
+        backgroundColor: '#3C3C4336',
+        height: '100%',
+    },
+    alertButtonTextCancel: {
+        fontSize: 17,
+        color: '#007AFF', // iOS Blue
+        fontWeight: '400',
+    },
+    alertButtonTextConfirm: {
+        fontSize: 17,
+        color: '#007AFF', // iOS Blue
+        fontWeight: '600', // Bold for default action
+    },
+    closeButton: {
+        padding: 8,
+    },
+    closeButtonText: {
+        color: '#9CA3AF',
+        fontSize: 14,
+        fontWeight: '500',
     }
 });
