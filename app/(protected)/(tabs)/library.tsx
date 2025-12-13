@@ -1,8 +1,9 @@
+import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Dimensions, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -63,6 +64,7 @@ const SESSIONS = [
 export default function LibraryScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const { user } = useUser();
 
     // State for modal
     const [selectedSession, setSelectedSession] = useState<typeof SESSIONS[0] | null>(null);
@@ -98,25 +100,32 @@ export default function LibraryScreen() {
                 style={[styles.glassHeader, { paddingTop: insets.top }]}
             >
                 <View style={styles.headerContent}>
-                    <TouchableOpacity style={styles.circleButton} activeOpacity={0.7}>
-                        <Ionicons name="arrow-back" size={20} color="#4B5563" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Meditate</Text>
-                    <TouchableOpacity style={styles.circleButton} activeOpacity={0.7}>
-                        <Ionicons name="search" size={20} color="#4B5563" />
-                    </TouchableOpacity>
+                    <Text style={styles.headerTitleLarge}>Library</Text>
+                    <View style={styles.headerRightButtons}>
+                        <TouchableOpacity style={styles.moreButton}>
+                            <Ionicons name="ellipsis-horizontal" size={20} color="#000" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.avatarButton}>
+                            {user?.imageUrl ? (
+                                <Image source={{ uri: user.imageUrl }} style={styles.avatarImage} />
+                            ) : (
+                                <View style={styles.avatarPlaceholder}>
+                                    <Text style={styles.avatarInitial}>{user?.firstName?.[0] || "U"}</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </BlurView>
 
             <ScrollView
                 contentContainerStyle={[
                     styles.scrollContent,
-                    { paddingTop: insets.top + 80 } // Push content down below header
+                    { paddingTop: insets.top + 80 }
                 ]}
                 showsVerticalScrollIndicator={false}
             >
 
-                {/* Session List */}
                 <View style={styles.cardList}>
                     {SESSIONS.map((session, index) => (
                         <Animated.View
@@ -134,14 +143,12 @@ export default function LibraryScreen() {
                                         <Text style={styles.cardDescription}>
                                             {session.description}
                                         </Text>
-                                        {/* Updated Duration Badge */}
                                         <View style={styles.durationBadge}>
                                             <Ionicons name="time-outline" size={14} color="#6B7280" />
                                             <Text style={styles.durationText}>{session.duration}</Text>
                                         </View>
                                     </View>
 
-                                    {/* Illustrative graphic area */}
                                     <View style={styles.graphicContainer}>
                                         <View style={[styles.graphicCircle, { backgroundColor: session.accentColor }]}>
                                             <Ionicons name={session.icon as any} size={30} color={session.iconColor} />
@@ -154,33 +161,46 @@ export default function LibraryScreen() {
                     ))}
                 </View>
 
-                {/* Group Meditation Section */}
+                <View style={styles.divider} />
+                <Text style={styles.sectionHeading}>Community</Text>
+
                 <Animated.View
-                    entering={FadeInDown.delay(500).springify()}
+                    entering={FadeInDown.delay(300).springify()}
                     style={styles.groupSection}
                 >
-                    <Text style={styles.groupTitle}>Group Meditation</Text>
-
                     <View style={styles.groupCard}>
-                        <View style={styles.groupInfo}>
-                            <Text style={styles.groupDescription}>
-                                Join our live session to practice mindfulness together. Starts at 11:00 AM.
+                        {/* Left Content */}
+                        <View style={styles.groupMainContent}>
+                            <View style={styles.groupBadgeContainer}>
+                                <View style={styles.liveDotPulse} />
+                                <Text style={styles.groupBadgeText}>UPCOMING • 11:00 AM</Text>
+                            </View>
+
+                            <Text style={styles.groupCardTitle}>Group Meditation</Text>
+                            <Text style={styles.groupCardSubtitle}>
+                                Practice mindfulness with the community.
                             </Text>
-                            <TouchableOpacity style={styles.remindButton} onPress={handleRemindPress}>
-                                <Text style={styles.remindButtonText}>Remind me</Text>
+
+                            <TouchableOpacity
+                                style={styles.minimalButton}
+                                activeOpacity={0.7}
+                                onPress={handleRemindPress}
+                            >
+                                <Text style={styles.minimalButtonText}>Notify Me</Text>
+                                <Ionicons name="notifications-outline" size={14} color="#000" />
                             </TouchableOpacity>
                         </View>
 
-                        {/* Group Graphic Placeholder */}
-                        <View style={styles.groupGraphic}>
-                            <View style={[styles.avatarBubble, { backgroundColor: '#FDBA74', bottom: 0, left: 0 }]}>
-                                <Ionicons name="people-outline" size={24} color="#B45309" />
+                        {/* Right Visuals - Minimalist Avatars */}
+                        <View style={styles.avatarStack}>
+                            <View style={[styles.avatarCircle, { backgroundColor: '#E0E7FF', zIndex: 3, right: 30 }]}>
+                                <Text style={{ fontSize: 10, fontWeight: '600', color: '#4338CA' }}>JD</Text>
                             </View>
-                            <View style={[styles.avatarBubble, { backgroundColor: '#A78BFA', top: 5, left: 30, zIndex: 10 }]}>
-                                <Ionicons name="happy-outline" size={24} color="#4C51BF" />
+                            <View style={[styles.avatarCircle, { backgroundColor: '#FCE7F3', zIndex: 2, right: 15 }]}>
+                                <Text style={{ fontSize: 10, fontWeight: '600', color: '#BE185D' }}>AL</Text>
                             </View>
-                            <View style={[styles.avatarBubble, { backgroundColor: '#F472B6', bottom: 5, right: 0 }]}>
-                                <Ionicons name="heart-outline" size={24} color="#BE185D" />
+                            <View style={[styles.avatarCircle, { backgroundColor: '#F3F4F6', zIndex: 1, right: 0 }]}>
+                                <Text style={{ fontSize: 10, fontWeight: '600', color: '#4B5563' }}>+40</Text>
                             </View>
                         </View>
                     </View>
@@ -245,53 +265,91 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#fff',
     },
+    // New Styles for Headings and Divider
+    sectionHeading: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#1F2937',
+        marginBottom: 16,
+        paddingHorizontal: 4, // Align visually with cards
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#F3F4F6',
+        marginVertical: 24,
+    },
+    // Header Styles (Preserved)
     glassHeader: {
         position: 'absolute',
         top: 0,
         left: 0,
         right: 0,
         zIndex: 100,
+        backgroundColor: 'rgba(255,255,255,0.0)',
     },
     headerContent: {
-        height: 52, // Slightly taller
+        height: 60,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
+        paddingHorizontal: 20,
     },
-    circleButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(0,0,0,0.05)', // Subtle touch
+    headerTitleLarge: {
+        fontSize: 34,
+        fontWeight: 'bold',
+        color: '#000',
+        letterSpacing: 0.35,
+    },
+    headerRightButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    moreButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#F2F2F7',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    headerTitle: {
-        fontSize: 17,
-        fontWeight: '600',
-        color: '#1F2937',
+    avatarButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.1)',
     },
+    avatarImage: {
+        width: '100%',
+        height: '100%',
+    },
+    avatarPlaceholder: {
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#E5E5EA',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarInitial: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#8E8E93',
+    },
+
     scrollContent: {
         paddingHorizontal: 24,
         paddingBottom: 40,
     },
-    largeTitle: {
-        fontSize: 34,
-        fontWeight: '700',
-        color: '#1F2937',
-        marginBottom: 20,
-        marginTop: 10,
-        letterSpacing: 0.35,
-    },
     cardList: {
-        gap: 20, // Increased gap for breathability
-        marginBottom: 32,
+        gap: 16,
+        marginBottom: 24,
     },
     card: {
-        borderRadius: 24, // Softer, more modern radius
-        overflow: 'visible', // Must be visible for shadow to show properly
-        minHeight: 120,
+        borderRadius: 20,
+        overflow: 'visible',
+        minHeight: 100, // Compressed
         borderWidth: 1,
         borderColor: '#E5E7EB',
     },
@@ -304,20 +362,20 @@ const styles = StyleSheet.create({
     },
     textContainer: {
         flex: 1,
-        padding: 20,
+        padding: 16,
         paddingRight: 8,
     },
     cardTitle: {
-        fontSize: 20, // Slightly larger
+        fontSize: 17,
         fontWeight: '700',
         color: '#1F2937',
-        marginBottom: 8,
+        marginBottom: 6,
     },
     cardDescription: {
-        fontSize: 14,
+        fontSize: 13,
         color: '#4B5563',
-        lineHeight: 20,
-        marginBottom: 16, // Increased space below description
+        lineHeight: 18,
+        marginBottom: 10,
     },
     durationBadge: {
         flexDirection: 'row',
@@ -335,81 +393,112 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     graphicContainer: {
-        width: 100,
-        height: 120,
+        width: 90,
+        height: 100,
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
     },
     graphicCircle: {
-        width: 60, // Slightly larger
-        height: 60,
-        borderRadius: 30,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 2,
     },
     graphicBlob: {
         position: 'absolute',
-        width: 90, // Slightly larger blob
-        height: 90,
-        borderRadius: 45,
-        right: -25,
-        bottom: -25,
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        right: -15,
+        bottom: -15,
         zIndex: 1,
     },
     groupSection: {
         marginTop: 8,
     },
-    groupTitle: {
-        fontSize: 24, // Bigger size for better section hierarchy
-        fontWeight: '700',
-        color: '#1F2937',
-        marginBottom: 20, // More space below title
-    },
     groupCard: {
+        backgroundColor: '#F9FAFB', // iOS System Gray 6 (ish)
+        borderRadius: 24,
+        padding: 24,
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 10,
+        justifyContent: 'space-between',
+        borderWidth: 1,
+        borderColor: '#F3F4F6',
     },
-    groupInfo: {
+    groupMainContent: {
         flex: 1,
         paddingRight: 16,
     },
-    groupDescription: {
-        fontSize: 16,
-        color: '#4B5563',
+    groupBadgeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    liveDotPulse: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#10B981', // Emerald 500
+        marginRight: 6,
+    },
+    groupBadgeText: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: '#6B7280', // Gray 500
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+    },
+    groupCardTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#111827',
+        marginBottom: 4,
+    },
+    groupCardSubtitle: {
+        fontSize: 13,
+        color: '#6B7280',
+        lineHeight: 18,
         marginBottom: 16,
-        lineHeight: 24, // Better line height for readability
     },
-    remindButton: {
-        backgroundColor: '#4C51BF', // Deep Indigo/Purple
-        paddingVertical: 14, // Taller button
-        paddingHorizontal: 28, // Wider button
-        borderRadius: 999, // Perfect pill shape
+    minimalButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        backgroundColor: '#fff',
+        borderRadius: 100,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
         alignSelf: 'flex-start',
+        gap: 6,
     },
-    remindButtonText: {
-        color: '#fff',
-        fontWeight: '700', // Bolder text
-        fontSize: 16,
+    minimalButtonText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#111827',
     },
-    groupGraphic: {
-        width: 110, // Wider graphic area
-        height: 100,
+    avatarStack: {
+        width: 80,
+        height: 40,
         position: 'relative',
+        justifyContent: 'center',
     },
-    avatarBubble: {
-        width: 48, // Slightly larger
-        height: 48,
-        borderRadius: 24,
+    avatarCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        borderWidth: 2,
+        borderColor: '#F9FAFB', // Match card bg
+        position: 'absolute',
         alignItems: 'center',
         justifyContent: 'center',
-        position: 'absolute',
-        borderWidth: 3, // Thicker white border
-        borderColor: '#fff',
     },
+
+    // Modal Styles
     modalOverlay: {
         flex: 1,
         justifyContent: 'center',
@@ -420,7 +509,7 @@ const styles = StyleSheet.create({
         width: 270,
         borderRadius: 14,
         overflow: 'hidden',
-        backgroundColor: 'rgba(245,245,245,0.85)', // Fallback if blur fails or enhances effect
+        backgroundColor: 'rgba(245,245,245,0.85)',
     },
     alertContent: {
         paddingTop: 20,
@@ -444,7 +533,7 @@ const styles = StyleSheet.create({
     alertButtons: {
         flexDirection: 'row',
         borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: '#3C3C4336', // Standard iOS separator color
+        borderTopColor: '#3C3C4336',
     },
     alertButton: {
         flex: 1,
@@ -459,20 +548,12 @@ const styles = StyleSheet.create({
     },
     alertButtonTextCancel: {
         fontSize: 17,
-        color: '#007AFF', // iOS Blue
+        color: '#007AFF',
         fontWeight: '400',
     },
     alertButtonTextConfirm: {
         fontSize: 17,
-        color: '#007AFF', // iOS Blue
-        fontWeight: '600', // Bold for default action
+        color: '#007AFF',
+        fontWeight: '600',
     },
-    closeButton: {
-        padding: 8,
-    },
-    closeButtonText: {
-        color: '#9CA3AF',
-        fontSize: 14,
-        fontWeight: '500',
-    }
 });

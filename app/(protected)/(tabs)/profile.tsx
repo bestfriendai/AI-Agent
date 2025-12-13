@@ -2,6 +2,7 @@ import { appwriteConfig, database, Session } from "@/utils/appwrite";
 import { colors } from "@/utils/colors";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
+import { BlurMask, Canvas, Circle } from "@shopify/react-native-skia";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -9,12 +10,13 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
-    Dimensions,
+    Dimensions, // Kept for types if needed, but unused in logic now
+    Modal,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View
 } from "react-native";
 import { Query } from "react-native-appwrite";
@@ -43,6 +45,26 @@ export default function ProfileScreen() {
         totalDuration: 0,
         totalTokens: 0,
     });
+
+    const [alertConfig, setAlertConfig] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        buttons: [] as { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[],
+    });
+
+    const showAlert = (title: string, message: string, buttons?: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[]) => {
+        setAlertConfig({
+            visible: true,
+            title,
+            message,
+            buttons: buttons || [{ text: 'OK', style: 'default' }],
+        });
+    };
+
+    const closeAlert = () => {
+        setAlertConfig(prev => ({ ...prev, visible: false }));
+    };
 
     useEffect(() => {
         fetchSessionData();
@@ -85,7 +107,7 @@ export default function ProfileScreen() {
     };
 
     const clearAllSessions = () => {
-        Alert.alert(
+        showAlert(
             "Clear History",
             "Are you sure you want to clear all session history? This cannot be undone.",
             [
@@ -95,19 +117,25 @@ export default function ProfileScreen() {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            for (const session of sessionHistory) {
-                                await database.deleteDocument(
-                                    appwriteConfig.db,
-                                    appwriteConfig.tables.session,
-                                    session.$id
-                                );
-                            }
+                            closeAlert(); // Close first
+                            setIsLoading(true);
+                            await Promise.all(
+                                sessionHistory.map(session =>
+                                    database.deleteDocument(
+                                        appwriteConfig.db,
+                                        appwriteConfig.tables.session,
+                                        session.$id
+                                    )
+                                )
+                            );
                             setSessionHistory([]);
                             setStats({ totalSessions: 0, totalDuration: 0, totalTokens: 0 });
-                            Alert.alert("Success", "History cleared successfully");
+                            showAlert("Success", "History cleared successfully");
                         } catch (e) {
                             console.log("Error clearing sessions:", e);
-                            Alert.alert("Error", "Failed to clear sessions");
+                            showAlert("Error", "Failed to clear sessions");
+                        } finally {
+                            setIsLoading(false);
                         }
                     },
                 },
@@ -120,7 +148,7 @@ export default function ProfileScreen() {
             await signOut();
         } catch (error) {
             console.error("Sign out error:", error);
-            Alert.alert("Error", "Failed to sign out");
+            showAlert("Error", "Failed to sign out");
         }
     };
 
@@ -134,13 +162,17 @@ export default function ProfileScreen() {
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                 />
-                {/* New Pattern: Concentric Rings */}
-                {/* <View style={styles.ring1} />
-                <View style={styles.ring2} />
-                <View style={styles.ring3} /> */}
-                <View style={styles.blob1} />
-                <View style={styles.blob2} />
-                <View style={styles.blob3} />
+                <Canvas style={StyleSheet.absoluteFill}>
+                    <Circle cx={width - 60} cy={20} r={140} color="rgba(255, 180, 80, 0.25)">
+                        <BlurMask blur={60} style="normal" />
+                    </Circle>
+                    <Circle cx={width - 80} cy={160} r={120} color="rgba(150, 100, 255, 0.25)">
+                        <BlurMask blur={70} style="normal" />
+                    </Circle>
+                    <Circle cx={width - 220} cy={60} r={100} color="rgba(255, 255, 255, 0.18)">
+                        <BlurMask blur={50} style="normal" />
+                    </Circle>
+                </Canvas>
             </View>
 
             <SafeAreaView style={styles.safeArea} edges={["top"]}>
@@ -170,7 +202,10 @@ export default function ProfileScreen() {
                         <Text style={styles.userName}>{user?.firstName} {user?.lastName}</Text>
                         <Text style={styles.userHandle}>{user?.primaryEmailAddress?.emailAddress}</Text>
 
-                        <TouchableOpacity style={styles.editProfileButton}>
+                        <TouchableOpacity
+                            style={styles.editProfileButton}
+                            onPress={() => showAlert("Coming Soon", "Edit Profile feature will be available in the next update.")}
+                        >
                             <Text style={styles.editProfileText}>Edit Profile</Text>
                         </TouchableOpacity>
                     </Animated.View>
@@ -222,14 +257,20 @@ export default function ProfileScreen() {
                     <View style={styles.bottomSheet}>
                         <Text style={styles.bottomSheetHeader}>Preferences & Settings</Text>
 
-                        <TouchableOpacity style={styles.settingRow}>
+                        <TouchableOpacity
+                            style={styles.settingRow}
+                            onPress={() => showAlert("Coming Soon", "Focus Mode settings will be available shortly.")}
+                        >
                             <Text style={styles.settingLabel}>Focus Mode</Text>
                             <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
                         </TouchableOpacity>
 
                         <View style={styles.settingDivider} />
 
-                        <TouchableOpacity style={styles.settingRow}>
+                        <TouchableOpacity
+                            style={styles.settingRow}
+                            onPress={() => showAlert("Coming Soon", "Voice Settings will be available shortly.")}
+                        >
                             <Text style={styles.settingLabel}>Voice Settings</Text>
                             <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
                         </TouchableOpacity>
@@ -258,7 +299,61 @@ export default function ProfileScreen() {
                     </View>
                 </ScrollView>
             </SafeAreaView>
-        </View>
+
+            {/* Custom iOS-style Modal */}
+            <Modal
+                transparent
+                visible={alertConfig.visible}
+                animationType="fade"
+                onRequestClose={closeAlert}
+            >
+                <View style={styles.modalOverlay}>
+                    {/* Dark/Blur Backdrop */}
+                    <TouchableWithoutFeedback onPress={closeAlert}>
+                        <View style={StyleSheet.absoluteFill} />
+                    </TouchableWithoutFeedback>
+
+                    <View style={styles.alertContainer}>
+                        <BlurView intensity={80} tint="systemMaterialDark" style={styles.alertBlur}>
+                            <View style={styles.alertContent}>
+                                <Text style={styles.alertTitle}>{alertConfig.title}</Text>
+                                <Text style={styles.alertMessage}>{alertConfig.message}</Text>
+                            </View>
+
+                            <View style={[
+                                styles.alertButtonsContainer,
+                                alertConfig.buttons.length > 2 && styles.alertButtonsVertical
+                            ]}>
+                                {alertConfig.buttons.map((btn, index) => (
+                                    <TouchableOpacity
+                                        key={index}
+                                        style={[
+                                            styles.alertButton,
+                                            alertConfig.buttons.length === 2 && index === 0 && styles.alertButtonBorderRight,
+                                            alertConfig.buttons.length > 2 && index < alertConfig.buttons.length - 1 && styles.alertButtonBorderBottom,
+                                            // Handle top border for first button if vertical or row
+                                            index === 0 && styles.alertButtonBorderTop
+                                        ]}
+                                        onPress={() => {
+                                            closeAlert();
+                                            if (btn.onPress) btn.onPress();
+                                        }}
+                                    >
+                                        <Text style={[
+                                            styles.alertButtonText,
+                                            btn.style === 'destructive' && styles.textDestructive,
+                                            btn.style === 'cancel' && styles.textBold,
+                                        ]}>
+                                            {btn.text}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </BlurView>
+                    </View>
+                </View>
+            </Modal>
+        </View >
     );
 }
 
@@ -415,23 +510,6 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.9)',
         fontWeight: '500',
     },
-    aiButton: {
-        marginHorizontal: 24,
-        borderRadius: 16,
-        marginBottom: 24,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.2)',
-    },
-    aiContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    aiText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
     glassCardInnerAi: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -492,7 +570,7 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         padding: 24,
-        paddingBottom: 40,
+        paddingBottom: 90,
         minHeight: 400,
     },
     bottomSheetHeader: {
@@ -536,36 +614,78 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         zIndex: 10,
     },
-    blob1: {
-        position: 'absolute',
-        top: -120,
-        right: -80,
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.62)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    alertContainer: {
         width: 280,
-        height: 280,
-        backgroundColor: 'rgba(255, 180, 80, 0.25)',
-        borderRadius: 200,
-        filter: 'blur(60px)'
+        borderRadius: 14,
+        overflow: 'hidden',
+        backgroundColor: 'rgba(30, 30, 30, 1)', // Fallback for no blur
     },
-
-    blob2: {
-        position: 'absolute',
-        top: 40,
-        right: -40,
-        width: 240,
-        height: 240,
-        backgroundColor: 'rgba(150, 100, 255, 0.25)',
-        borderRadius: 200,
-        filter: 'blur(70px)'
+    alertBlur: {
+        width: '100%',
+        alignItems: 'center',
     },
-
-    blob3: {
-        position: 'absolute',
-        top: -40,
-        right: 120,
-        width: 200,
-        height: 200,
-        backgroundColor: 'rgba(255, 255, 255, 0.18)',
-        borderRadius: 200,
-        filter: 'blur(50px)'
+    alertContent: {
+        paddingTop: 20,
+        paddingHorizontal: 16,
+        paddingBottom: 20,
+        alignItems: 'center',
+    },
+    alertTitle: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#fff',
+        marginBottom: 4,
+        textAlign: 'center',
+    },
+    alertMessage: {
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.8)',
+        textAlign: 'center',
+        lineHeight: 18,
+    },
+    alertButtonsContainer: {
+        flexDirection: 'row',
+        width: '100%',
+    },
+    alertButtonsVertical: {
+        flexDirection: 'column',
+    },
+    alertButton: {
+        flex: 1,
+        height: 44,
+        justifyContent: 'center',
+        alignItems: 'center',
+        // backgroundColor: 'rgba(255,255,255,0.05)', // slight highlight
+    },
+    alertButtonBorderTop: {
+        borderTopWidth: 0.5,
+        borderTopColor: 'rgba(255,255,255,0.15)',
+    },
+    alertButtonBorderRight: {
+        borderRightWidth: 0.5,
+        borderRightColor: 'rgba(255,255,255,0.15)',
+    },
+    alertButtonBorderBottom: {
+        borderBottomWidth: 0.5,
+        borderBottomColor: 'rgba(255,255,255,0.15)',
+    },
+    alertButtonText: {
+        fontSize: 17,
+        color: '#0A84FF', // iOS Blue
+        fontWeight: '400',
+    },
+    textBold: {
+        fontWeight: '600',
+    },
+    textDestructive: {
+        color: '#FF453A', // iOS Red
+        fontWeight: '600',
     },
 });

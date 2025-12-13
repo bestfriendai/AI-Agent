@@ -1,5 +1,4 @@
 import { sessions } from "@/utils/sessions";
-import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { PropsWithChildren, ReactNode, useMemo } from "react";
@@ -69,11 +68,6 @@ export default function ParallaxScrollView({ children, headerRight }: ParallaxSc
                     colors={['rgba(0,0,0,0.0)', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.55)']}
                     style={styles.headerContainer}
                 >
-                    <View style={styles.headerLeftGlassContainer}>
-                        <BlurView intensity={40} tint="dark" style={styles.glassBadge}>
-                            <Text style={styles.glassText}>Siora</Text>
-                        </BlurView>
-                    </View>
 
                     <View style={{ flex: 1 }} />
 
