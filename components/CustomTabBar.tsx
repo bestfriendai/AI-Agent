@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,7 +17,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
         <View style={[styles.container, { bottom: insets.bottom + 10 }]}>
             {/* Main Tabs Group */}
             <View style={styles.tabGroupContainer}>
-                <BlurView intensity={60} tint="dark" style={styles.blurContainer}>
+                <BlurView intensity={80} tint="light" style={styles.blurContainer}>
                     <View style={styles.tabGroupInner}>
                         {mainRoutes.map((route) => {
                             const { options } = descriptors[route.key];
@@ -24,6 +25,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                             const isFocused = state.index === state.routes.indexOf(route);
 
                             const onPress = () => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                 const event = navigation.emit({
                                     type: 'tabPress',
                                     target: route.key,
@@ -56,11 +58,11 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                                     <Ionicons
                                         name={iconName}
                                         size={22}
-                                        color={isFocused ? "#FFFFFF" : "#8E8E93"}
+                                        color={isFocused ? "#000000" : "#8E8E93"}
                                     />
                                     <Text style={[
                                         styles.tabLabel,
-                                        { color: isFocused ? "#FFFFFF" : "#8E8E93" }
+                                        { color: isFocused ? "#000000" : "#8E8E93" }
                                     ]}>
                                         {label}
                                     </Text>
@@ -75,11 +77,14 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
             {exploreRoute && (
                 <TouchableOpacity
                     style={styles.searchButtonContainer}
-                    onPress={() => navigation.navigate(exploreRoute.name)}
+                    onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        navigation.navigate(exploreRoute.name);
+                    }}
                     accessibilityRole="button"
                 >
-                    <BlurView intensity={60} tint="dark" style={styles.searchButtonBlur}>
-                        <Ionicons name="search" size={24} color="#FFFFFF" />
+                    <BlurView intensity={80} tint="light" style={styles.searchButtonBlur}>
+                        <Ionicons name="search" size={24} color="#000000" />
                     </BlurView>
                 </TouchableOpacity>
             )}
@@ -104,12 +109,20 @@ const styles = StyleSheet.create({
         borderRadius: 35,
         overflow: 'hidden',
         height: 65,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 5,
     },
     blurContainer: {
         flex: 1,
         width: '100%',
         height: '100%',
-        backgroundColor: 'rgba(10, 10, 10, 0.70)',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
     },
     tabGroupInner: {
         flexDirection: 'row',
@@ -133,11 +146,19 @@ const styles = StyleSheet.create({
         height: 65,
         borderRadius: 32.5,
         overflow: 'hidden',
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 5,
     },
     searchButtonBlur: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(10, 10, 10, 0.70)',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
     }
 });

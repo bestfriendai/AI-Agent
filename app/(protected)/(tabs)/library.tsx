@@ -221,7 +221,7 @@ export default function LibraryScreen() {
                     activeOpacity={1}
                     onPress={() => setModalVisible(false)}
                 >
-                    <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+                    <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFill} />
 
                     <TouchableOpacity
                         activeOpacity={1}
@@ -418,6 +418,7 @@ const styles = StyleSheet.create({
     },
     groupSection: {
         marginTop: 8,
+        marginBottom: 24,
     },
     groupCard: {
         backgroundColor: '#F9FAFB', // iOS System Gray 6 (ish)

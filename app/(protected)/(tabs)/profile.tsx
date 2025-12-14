@@ -314,7 +314,7 @@ export default function ProfileScreen() {
                     </TouchableWithoutFeedback>
 
                     <View style={styles.alertContainer}>
-                        <BlurView intensity={80} tint="systemMaterialDark" style={styles.alertBlur}>
+                        <BlurView intensity={80} tint="light" style={styles.alertBlur}>
                             <View style={styles.alertContent}>
                                 <Text style={styles.alertTitle}>{alertConfig.title}</Text>
                                 <Text style={styles.alertMessage}>{alertConfig.message}</Text>
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     // Modal Styles
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.62)',
+        backgroundColor: 'rgba(0, 0, 0, 0.18)',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
         width: 280,
         borderRadius: 14,
         overflow: 'hidden',
-        backgroundColor: 'rgba(30, 30, 30, 1)', // Fallback for no blur
+        backgroundColor: 'rgba(255, 255, 255, 0.8)', // Light background
     },
     alertBlur: {
         width: '100%',
@@ -640,13 +640,13 @@ const styles = StyleSheet.create({
     alertTitle: {
         fontSize: 17,
         fontWeight: '600',
-        color: '#fff',
+        color: '#000',
         marginBottom: 4,
         textAlign: 'center',
     },
     alertMessage: {
         fontSize: 13,
-        color: 'rgba(255,255,255,0.8)',
+        color: '#333',
         textAlign: 'center',
         lineHeight: 18,
     },
@@ -666,15 +666,15 @@ const styles = StyleSheet.create({
     },
     alertButtonBorderTop: {
         borderTopWidth: 0.5,
-        borderTopColor: 'rgba(255,255,255,0.15)',
+        borderTopColor: 'rgba(60, 60, 67, 0.29)', // Standard iOS separator color
     },
     alertButtonBorderRight: {
         borderRightWidth: 0.5,
-        borderRightColor: 'rgba(255,255,255,0.15)',
+        borderRightColor: 'rgba(60, 60, 67, 0.29)',
     },
     alertButtonBorderBottom: {
         borderBottomWidth: 0.5,
-        borderBottomColor: 'rgba(255,255,255,0.15)',
+        borderBottomColor: 'rgba(60, 60, 67, 0.29)',
     },
     alertButtonText: {
         fontSize: 17,
