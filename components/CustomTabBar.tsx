@@ -1,25 +1,72 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { LayoutChangeEvent, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GlassBlur } from './GlassBlur';
 
 export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     const insets = useSafeAreaInsets();
+    const [totalWidth, setTotalWidth] = useState(0);
 
     // Separate 'explore' route (Search) from the others (Tab Group)
     const mainRoutes = state.routes.filter(r => r.name !== 'explore');
     const exploreRoute = state.routes.find(r => r.name === 'explore');
 
+    // Find the active index within the main routes, ignore explore
+    const activeRouteIndex = mainRoutes.findIndex(r => r.key === state.routes[state.index].key);
+
+    const translateX = useSharedValue(0);
+    const opacity = useSharedValue(0); // For fading the pill in/out
+
+    useEffect(() => {
+        // If we have a valid width and a valid active index (not 'explore' or unrelated)
+        if (totalWidth > 0 && activeRouteIndex !== -1) {
+            const tabWidth = totalWidth / mainRoutes.length;
+
+            // Move the pill
+            translateX.value = withSpring(activeRouteIndex * tabWidth, {
+                mass: 1,
+                damping: 25,
+                stiffness: 250,
+            });
+
+            // Make sure pill is visible
+            opacity.value = withTiming(1, { duration: 250 });
+        } else {
+            // If activeRouteIndex is -1 (e.g. we are on 'explore'), hide the pill
+            opacity.value = withTiming(0, { duration: 200 });
+        }
+    }, [activeRouteIndex, totalWidth, mainRoutes.length]);
+
+    const animatedPillStyle = useAnimatedStyle(() => {
+        // Safe guard against divide by zero if width not set yet
+        const tabWidth = totalWidth > 0 ? (totalWidth / mainRoutes.length) : 0;
+
+        return {
+            transform: [{ translateX: translateX.value }],
+            width: tabWidth,
+            opacity: opacity.value,
+        };
+    });
+
     return (
         <View style={[styles.container, { bottom: insets.bottom + 10 }]}>
             {/* Main Tabs Group */}
             <View style={styles.tabGroupContainer}>
-                <BlurView intensity={80} tint="light" style={styles.blurContainer}>
-                    <View style={styles.tabGroupInner}>
-                        {mainRoutes.map((route) => {
+                <GlassBlur style={styles.blurContainer}>
+                    <View
+                        style={styles.tabGroupInner}
+                        onLayout={(e: LayoutChangeEvent) => setTotalWidth(e.nativeEvent.layout.width)}
+                    >
+                        {/* Animated Glass Pill - Rendered behind content but inside the group */}
+                        <Animated.View style={[styles.pillContainer, animatedPillStyle]}>
+                            <View style={styles.pillInner} />
+                        </Animated.View>
+
+                        {mainRoutes.map((route, index) => {
                             const { options } = descriptors[route.key];
                             const label = options.title !== undefined ? options.title : route.name;
                             const isFocused = state.index === state.routes.indexOf(route);
@@ -37,7 +84,6 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                                 }
                             };
 
-                            // Define icons based on route name
                             let iconName: keyof typeof Ionicons.glyphMap = "home";
                             if (route.name === 'index') {
                                 iconName = isFocused ? "home" : "home-outline";
@@ -51,7 +97,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                                 <TouchableOpacity
                                     key={route.key}
                                     onPress={onPress}
-                                    style={styles.tabItem}
+                                    style={[styles.tabItem]} // No static activeTabItem styles
                                     accessibilityRole="button"
                                     accessibilityState={isFocused ? { selected: true } : {}}
                                 >
@@ -70,7 +116,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                             )
                         })}
                     </View>
-                </BlurView>
+                </GlassBlur>
             </View>
 
             {/* Search/Explore Button */}
@@ -83,9 +129,9 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                     }}
                     accessibilityRole="button"
                 >
-                    <BlurView intensity={80} tint="light" style={styles.searchButtonBlur}>
+                    <GlassBlur style={styles.searchButtonBlur}>
                         <Ionicons name="search" size={24} color="#000000" />
-                    </BlurView>
+                    </GlassBlur>
                 </TouchableOpacity>
             )}
         </View>
@@ -122,24 +168,41 @@ const styles = StyleSheet.create({
         flex: 1,
         width: '100%',
         height: '100%',
-        backgroundColor: 'rgba(255, 255, 255, 0.8)',
     },
     tabGroupInner: {
         flexDirection: 'row',
         flex: 1,
-        justifyContent: 'space-around',
+        height: '100%',
         alignItems: 'center',
-        paddingHorizontal: 10,
     },
     tabItem: {
+        flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 5,
+        height: '100%',
+        zIndex: 2,
     },
     tabLabel: {
         fontSize: 10,
-        marginTop: 4,
+        marginTop: 2,
         fontWeight: '500',
+    },
+    // The moving container for the pill
+    pillContainer: {
+        position: 'absolute',
+        height: '100%',
+        top: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1,
+    },
+    // The actual visible pill shape
+    pillInner: {
+        width: '85%',
+        height: 55,
+        borderRadius: 45,
+        backgroundColor: 'rgba(191, 191, 191, 0.44)',
     },
     searchButtonContainer: {
         width: 65,
@@ -159,6 +222,5 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.8)',
     }
 });
