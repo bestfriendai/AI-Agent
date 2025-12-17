@@ -1,5 +1,5 @@
-import { appwriteConfig, database } from "@/utils/appwrite";
 import { colors } from "@/utils/colors";
+import { supabase } from "@/utils/supabase";
 import { ConversationResponse, TranscriptEntry } from "@/utils/types";
 import { useUser } from "@clerk/clerk-expo";
 import { LinearGradient } from "expo-linear-gradient";
@@ -13,7 +13,7 @@ import {
     Text,
     View,
 } from "react-native";
-import { ID } from "react-native-appwrite";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Gradient } from "../gradient";
 
@@ -76,20 +76,20 @@ export default function SummaryScreen() {
     async function saveAndContinue() {
         try {
             setIsSaving(true);
-            await database.createDocument(
-                appwriteConfig.db,
-                appwriteConfig.tables.session,
-                ID.unique(),
-                {
-                    user_id: user?.id,
-                    status: conversation?.status,
-                    conv_id: conversationId,
-                    tokens: Number(conversation?.metadata?.cost),
-                    call_duration_secs: Number(conversation?.metadata?.call_duration_secs),
-                    transcript: conversation?.transcript.map((t) => t.message).join("\n"),
-                    call_summary_title: conversation?.analysis?.call_summary_title,
-                }
-            );
+            const { error } = await supabase.from('session').insert({
+                user_id: user?.id,
+                status: conversation?.status,
+                conv_id: conversationId,
+                tokens: Number(conversation?.metadata?.cost),
+                call_duration_secs: Number(conversation?.metadata?.call_duration_secs),
+                transcript: conversation?.transcript.map((t) => t.message).join("\n"),
+                call_summary_title: conversation?.analysis?.call_summary_title,
+            });
+
+            if (error) {
+                console.log("Error creation session", error);
+                throw error;
+            }
 
             router.dismissAll();
         } catch (error) {

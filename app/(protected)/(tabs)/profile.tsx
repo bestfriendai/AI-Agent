@@ -1,5 +1,5 @@
-import { appwriteConfig, database, Session } from "@/utils/appwrite";
 import { colors } from "@/utils/colors";
+import { Session, supabase } from "@/utils/supabase";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurMask, Canvas, Circle } from "@shopify/react-native-skia";
@@ -19,7 +19,6 @@ import {
     TouchableWithoutFeedback,
     View
 } from "react-native";
-import { Query } from "react-native-appwrite";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -76,12 +75,17 @@ export default function ProfileScreen() {
         }
         try {
             setIsLoading(true);
-            const { documents } = await database.listDocuments(
-                appwriteConfig.db,
-                appwriteConfig.tables.session,
-                [Query.equal("user_id", user.id)]
-            );
-            const sessions = documents as unknown as Session[];
+            const { data, error } = await supabase
+                .from('session')
+                .select('*')
+                .eq('user_id', user.id);
+
+            if (error) {
+                console.log("Error fetching session data:", error);
+                return;
+            }
+
+            const sessions = data as Session[];
             setSessionHistory(sessions);
 
             // Calculate stats
@@ -121,11 +125,10 @@ export default function ProfileScreen() {
                             setIsLoading(true);
                             await Promise.all(
                                 sessionHistory.map(session =>
-                                    database.deleteDocument(
-                                        appwriteConfig.db,
-                                        appwriteConfig.tables.session,
-                                        session.$id
-                                    )
+                                    supabase
+                                        .from('session')
+                                        .delete()
+                                        .eq('id', session.id)
                                 )
                             );
                             setSessionHistory([]);

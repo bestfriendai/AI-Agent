@@ -10,7 +10,7 @@
   [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
   [![LiveKit](https://img.shields.io/badge/LiveKit-3B82F6?style=for-the-badge&logo=webrtc&logoColor=white)](https://livekit.io/)
   [![Clerk](https://img.shields.io/badge/Clerk-6C47FF?style=for-the-badge&logo=clerk&logoColor=white)](https://clerk.com/)
-  [![Appwrite](https://img.shields.io/badge/Appwrite-FD366E?style=for-the-badge&logo=appwrite&logoColor=white)](https://appwrite.io/)
+  [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 
   <p align="center">
     <a href="#-features">Features</a> •
@@ -27,7 +27,7 @@
 
 **AI-Agent** (Siora) is a cutting-edge, cross-platform mobile application designed to bring mindfulness and inner peace through AI-driven voice conversations. Built with **React Native** and **Expo**, it leverages **LiveKit** and **ElevenLabs** to create immersive, real-time audio experiences.
 
-Whether you're looking for a guided meditation session in a "Forest Path" or a calming chat with a virtual companion, AI-Agent adapts to your mood and provides personalized interactions. With secure authentication via **Clerk** and robust data management using **Appwrite**, your wellness journey is private, secure, and seamless.
+Whether you're looking for a guided meditation session in a "Forest Path" or a calming chat with a virtual companion, AI-Agent adapts to your mood and provides personalized interactions. With secure authentication via **Clerk** and robust data management using **Supabase**, your wellness journey is private, secure, and seamless.
 
 ## ✨ Features
 
@@ -50,7 +50,7 @@ Whether you're looking for a guided meditation session in a "Forest Path" or a c
 | **Routing** | Expo Router | File-based routing |
 | **Voice/Video** | LiveKit, ElevenLabs | Real-time audio & AI voice synthesis |
 | **Auth** | Clerk | User authentication & management |
-| **Backend** | Appwrite | Database & backend services |
+| **Backend** | Supabase | Database & backend services |
 | **Styling** | StyleSheet, Expo Linear Gradient | Native styling & gradients |
 | **Animations** | Reanimated, Skia | High-performance animations |
 | **Lists** | FlashList | Fast & efficient list rendering |
@@ -62,7 +62,7 @@ Whether you're looking for a guided meditation session in a "Forest Path" or a c
 | [`@clerk/clerk-expo`](https://clerk.com/docs/quickstarts/expo) | `^2.19.4` | **Authentication**: Secure user management and sign-in flows. |
 | [`@elevenlabs/react-native`](https://elevenlabs.io/docs/api-reference/react-native-sdk) | `^0.5.2` | **AI Voice**: Realistic text-to-speech synthesis. |
 | [`@livekit/react-native`](https://docs.livekit.io/client-sdk-react-native/) | `^2.9.5` | **Real-time**: Low-latency voice and video communication. |
-| [`react-native-appwrite`](https://appwrite.io/docs/sdks/react-native) | `^0.18.0` | **Backend**: Database, storage, and serverless functions. |
+| [`@supabase/supabase-js`](https://supabase.com/docs/reference/javascript/introduction) | `^2.39.0` | **Backend**: Database and real-time subscriptions. |
 | [`react-native-reanimated`](https://docs.swmansion.com/react-native-reanimated/) | `~4.1.1` | **Animations**: High-performance, declarative animations. |
 | [`expo`](https://docs.expo.dev/) | `~54.0.25` | **Framework**: The core platform for building universal apps. |
 
@@ -95,8 +95,8 @@ Follow these steps to set up the project locally.
     Create a `.env` file in the root directory and add your keys:
     ```env
     EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
-    EXPO_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
-    EXPO_PUBLIC_APPWRITE_PROJECT_ID=...
+    EXPO_PUBLIC_SUPABASE_URL=https://...supabase.co
+    EXPO_PUBLIC_SUPABASE_KEY=...
     # Add LiveKit and ElevenLabs keys if required by your implementation
     ```
 
@@ -140,7 +140,7 @@ AI-Agent/
 │   ├── useConversation.ts # Custom hook for LiveKit/ElevenLabs logic
 │   └── ...
 ├── utils/
-│   ├── appwrite.ts      # Appwrite SDK configuration
+│   ├── supabase.ts      # Supabase SDK configuration
 │   ├── sessions.ts      # Session data and types
 │   └── colors.ts        # Design system colors
 ├── assets/
@@ -156,8 +156,8 @@ Create a `.env` file in the root directory with the following variables:
 | Variable | Description | Required |
 | :--- | :--- | :--- |
 | `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` | Your Clerk Publishable Key | Yes |
-| `EXPO_PUBLIC_APPWRITE_ENDPOINT` | Appwrite API Endpoint | Yes |
-| `EXPO_PUBLIC_APPWRITE_PROJECT_ID` | Appwrite Project ID | Yes |
+| `EXPO_PUBLIC_SUPABASE_URL` | Supabase Project URL | Yes |
+| `EXPO_PUBLIC_SUPABASE_KEY` | Supabase Anon Key | Yes |
 | `EXPO_PUBLIC_LIVEKIT_URL` | LiveKit Server URL (if using custom) | No |
 | `EXPO_PUBLIC_LIVEKIT_TOKEN` | LiveKit Token (for testing) | No |
 

@@ -1,7 +1,7 @@
 import ParallaxScrollView, { blurhash } from "@/components/ParallaxScrollView";
-import { appwriteConfig, database, Session } from "@/utils/appwrite";
 import { colors } from "@/utils/colors";
 import { sessions } from "@/utils/sessions";
+import { Session, supabase } from "@/utils/supabase";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
@@ -10,7 +10,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Query } from "react-native-appwrite";
+
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 export default function Index() {
@@ -28,12 +28,15 @@ export default function Index() {
             return;
         }
         try {
-            const { documents } = await database.listDocuments(appwriteConfig.db,
-                appwriteConfig.tables.session,
-                [Query.equal("user_id", user.id)]
-            )
-            setSessionHistory(documents as unknown as Session[])
-            console.log(JSON.stringify(documents, null, 2));
+            const { data, error } = await supabase
+                .from('session')
+                .select('*')
+                .eq('user_id', user.id);
+
+            if (error) throw error;
+
+            setSessionHistory(data as Session[])
+            console.log(JSON.stringify(data, null, 2));
         } catch (e) {
             console.log(e);
         }
@@ -107,7 +110,7 @@ export default function Index() {
                 {sessionHistory.length > 0 ? (
                     sessionHistory.map((session, index) => (
                         <Animated.View
-                            key={session.$id}
+                            key={session.id}
                             entering={FadeInDown.delay(index * 100 + 300).springify()}
                         >
                             <SessionCard session={session} />
@@ -148,7 +151,7 @@ const SessionCard = ({ session }: { session: Session }) => {
                         {session.call_summary_title || "Untitled Session"}
                     </Text>
                     <Text style={styles.cardDate}>
-                        {new Date(session.$createdAt).toLocaleDateString("en-US", {
+                        {new Date(session.created_at).toLocaleDateString("en-US", {
                             weekday: "short",
                             month: "short",
                             day: "numeric",
