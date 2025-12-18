@@ -1,6 +1,6 @@
 import { colors } from '@/utils/colors';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -47,51 +47,29 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
 
     // Audio State
     const [isAudioEnabled, setIsAudioEnabled] = useState(session?.playAudio === 'true');
-    const [sound, setSound] = useState<Audio.Sound | null>(null);
+    // Audio State handled by expo-audio hook
+    const player = useAudioPlayer(session?.audioUri || null);
 
-    // Audio Playback Hook
     useEffect(() => {
-        let soundObject: Audio.Sound | null = null;
-
-        const loadSound = async () => {
-            if (session?.audioUri) {
-                try {
-                    console.log('Loading Sound:', session.audioUri);
-                    const { sound: newSound } = await Audio.Sound.createAsync(
-                        { uri: session.audioUri },
-                        { shouldPlay: isAudioEnabled, isLooping: true, volume: 0.5 }
-                    );
-                    soundObject = newSound;
-                    setSound(newSound);
-                    console.log('Sound loaded');
-                } catch (error) {
-                    console.log('Error loading sound', error);
-                }
+        if (player) {
+            player.loop = true;
+            player.volume = 0.5;
+            if (isAudioEnabled) {
+                player.play();
             }
-        };
-
-        loadSound();
-
-        return () => {
-            if (soundObject) {
-                console.log('Unloading Sound');
-                soundObject.stopAsync().then(() => {
-                    soundObject?.unloadAsync();
-                });
-            }
-        };
-    }, [session?.audioUri]);
+        }
+    }, [player]);
 
     // Handle Mute/Unmute
     useEffect(() => {
-        if (sound) {
+        if (player) {
             if (isAudioEnabled) {
-                sound.playAsync().catch(e => console.log('Play error', e));
+                player.play();
             } else {
-                sound.pauseAsync().catch(e => console.log('Pause error', e));
+                player.pause();
             }
         }
-    }, [isAudioEnabled, sound]);
+    }, [isAudioEnabled, player]);
 
     // Toggle Handler
     const toggleAudio = () => {
