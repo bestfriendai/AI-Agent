@@ -29,3 +29,15 @@ export interface ConversationResponse {
     has_response_audio: boolean;
     analysis: Analysis;
 }
+
+export interface Session {
+    id: string; // Firebase IDs are strings
+    created_at: string; // ISO string
+    user_id: string;
+    status: "in-progress" | "done" | "failed";
+    conv_id: string;
+    tokens?: number;
+    call_duration_secs?: number;
+    transcript?: string;
+    call_summary_title?: string;
+}

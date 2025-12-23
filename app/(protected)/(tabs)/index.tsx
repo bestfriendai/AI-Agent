@@ -1,13 +1,15 @@
 import ParallaxScrollView, { blurhash } from "@/components/ParallaxScrollView";
 import { colors } from "@/utils/colors";
+import { db } from "@/utils/firebase";
 import { sessions } from "@/utils/sessions";
-import { Session, supabase } from "@/utils/supabase";
+import { Session } from "@/utils/types";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -28,15 +30,17 @@ export default function Index() {
             return;
         }
         try {
-            const { data, error } = await supabase
-                .from('session')
-                .select('*')
-                .eq('user_id', user.id);
+            const sessionsRef = collection(db, "session");
+            const q = query(sessionsRef, where("user_id", "==", user.id));
+            const querySnapshot = await getDocs(q);
 
-            if (error) throw error;
+            const sessions: Session[] = [];
+            querySnapshot.forEach((doc) => {
+                sessions.push({ id: doc.id, ...doc.data() } as Session);
+            });
 
-            setSessionHistory(data as Session[])
-            console.log(JSON.stringify(data, null, 2));
+            setSessionHistory(sessions);
+            console.log(JSON.stringify(sessions, null, 2));
         } catch (e) {
             console.log(e);
         }

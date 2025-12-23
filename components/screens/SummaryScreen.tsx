@@ -1,9 +1,10 @@
 import { colors } from "@/utils/colors";
-import { supabase } from "@/utils/supabase";
+import { db } from "@/utils/firebase";
 import { ConversationResponse, TranscriptEntry } from "@/utils/types";
 import { useUser } from "@clerk/clerk-expo";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { addDoc, collection } from "firebase/firestore";
 import React, { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
@@ -76,7 +77,7 @@ export default function SummaryScreen() {
     async function saveAndContinue() {
         try {
             setIsSaving(true);
-            const { error } = await supabase.from('session').insert({
+            await addDoc(collection(db, "session"), {
                 user_id: user?.id,
                 status: conversation?.status,
                 conv_id: conversationId,
@@ -84,12 +85,8 @@ export default function SummaryScreen() {
                 call_duration_secs: Number(conversation?.metadata?.call_duration_secs),
                 transcript: conversation?.transcript.map((t) => t.message).join("\n"),
                 call_summary_title: conversation?.analysis?.call_summary_title,
+                created_at: new Date().toISOString(),
             });
-
-            if (error) {
-                console.log("Error creation session", error);
-                throw error;
-            }
 
             router.dismissAll();
         } catch (error) {
