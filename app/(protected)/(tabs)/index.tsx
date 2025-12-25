@@ -18,18 +18,28 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 export default function Index() {
     const router = useRouter();
     const [sessionHistory, setSessionHistory] = useState<Session[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
     const { user } = useUser();
 
     useEffect(() => {
-        fetchSession();
+        let isMounted = true;
+
+        const initFetch = async () => {
+            if (isMounted) await fetchSession();
+        };
+
+        initFetch();
+
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     const fetchSession = async () => {
-        if (!user) {
-            alert("No user found")
-            return;
-        }
+        if (!user) return;
+
         try {
+            setIsLoading(true);
             const sessionsRef = collection(db, "session");
             const q = query(sessionsRef, where("user_id", "==", user.id));
             const querySnapshot = await getDocs(q);
@@ -39,10 +49,14 @@ export default function Index() {
                 sessions.push({ id: doc.id, ...doc.data() } as Session);
             });
 
+            // Sort by created_at desc
+            sessions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
             setSessionHistory(sessions);
-            console.log(JSON.stringify(sessions, null, 2));
         } catch (e) {
             console.log(e);
+        } finally {
+            setIsLoading(false);
         }
     }
 
@@ -97,21 +111,33 @@ export default function Index() {
                 <Text style={styles.sectionTitle}>Recent History</Text>
                 <Pressable
                     onPress={fetchSession}
+                    disabled={isLoading}
                     style={({ pressed }) => [
                         styles.refreshButton,
-                        pressed && { opacity: 0.7 }
+                        pressed && { opacity: 0.7 },
+                        isLoading && { opacity: 0.5 }
                     ]}
                 >
-                    <Ionicons
-                        name="refresh"
-                        size={20}
-                        color={colors.primary}
-                    />
+                    {isLoading ? (
+                        <Animated.View entering={FadeInDown}>
+                            <Ionicons name="reload" size={20} color={colors.primary} />
+                        </Animated.View>
+                    ) : (
+                        <Ionicons
+                            name="refresh"
+                            size={20}
+                            color={colors.primary}
+                        />
+                    )}
                 </Pressable>
             </View>
 
             <View style={styles.historyContainer}>
-                {sessionHistory.length > 0 ? (
+                {isLoading && sessionHistory.length === 0 ? (
+                    <View style={{ padding: 20, alignItems: 'center' }}>
+                        <Text style={{ color: '#888' }}>Loading history...</Text>
+                    </View>
+                ) : sessionHistory.length > 0 ? (
                     sessionHistory.map((session, index) => (
                         <Animated.View
                             key={session.id}
@@ -134,7 +160,7 @@ export default function Index() {
 }
 
 const SessionCard = ({ session }: { session: Session }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
+    const router = useRouter();
     const randomEmoji = useMemo(() => {
         return ["🌱", "🏄", "⛅", "🌙", "🗻", "☁️", "🐚", "🌸", "✨", "🕊️"][
             Math.floor(Math.random() * 10)
@@ -144,7 +170,13 @@ const SessionCard = ({ session }: { session: Session }) => {
     return (
         <Pressable
             style={styles.card}
-            onPress={() => setIsExpanded(!isExpanded)}
+            onPress={() => {
+                // Pass sessionId for history items to load from DB
+                router.push({
+                    pathname: "/summary",
+                    params: { sessionId: session.id }
+                });
+            }}
         >
             <View style={styles.cardHeader}>
                 <View style={styles.emojiContainer}>
@@ -165,7 +197,7 @@ const SessionCard = ({ session }: { session: Session }) => {
                     </Text>
                 </View>
                 <Ionicons
-                    name={isExpanded ? "chevron-up" : "chevron-down"}
+                    name="chevron-forward"
                     size={20}
                     color="#999"
                 />
@@ -181,13 +213,6 @@ const SessionCard = ({ session }: { session: Session }) => {
                     <Text style={styles.statText}>{session.tokens} tokens</Text>
                 </View>
             </View>
-
-            {isExpanded && (
-                <Animated.View entering={FadeInDown.duration(200)} style={styles.cardContent}>
-                    <Text style={styles.transcriptLabel}>Summary</Text>
-                    <Text style={styles.transcriptText}>{session.transcript}</Text>
-                </Animated.View>
-            )}
         </Pressable>
     );
 };

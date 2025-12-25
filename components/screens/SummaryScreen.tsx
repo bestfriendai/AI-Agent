@@ -2,9 +2,10 @@ import { colors } from "@/utils/colors";
 import { db } from "@/utils/firebase";
 import { ConversationResponse, TranscriptEntry } from "@/utils/types";
 import { useUser } from "@clerk/clerk-expo";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { addDoc, collection } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc } from "firebase/firestore";
 import React, { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
@@ -14,15 +15,20 @@ import {
     Text,
     View,
 } from "react-native";
-
 import { SafeAreaView } from "react-native-safe-area-context";
+import { GlassBlur } from "../GlassBlur";
 import { Gradient } from "../gradient";
 
 // Optimized message component
 const MessageBubble = React.memo(({ item }: { item: TranscriptEntry }) => {
     const isUser = item.role === "user";
     return (
-        <View style={[styles.messageContainer, isUser && styles.userMessageContainer]}>
+        <View style={[styles.messageRow, isUser ? styles.userRow : styles.aiRow]}>
+            {!isUser && (
+                <View style={styles.avatarPlaceholder}>
+                    <Ionicons name="sparkles" size={12} color="#FFFFFF" />
+                </View>
+            )}
             <View style={[styles.bubble, isUser ? styles.userBubble : styles.aiBubble]}>
                 <Text style={[styles.bubbleText, isUser && styles.userBubbleText]}>
                     {item.message}
@@ -33,19 +39,27 @@ const MessageBubble = React.memo(({ item }: { item: TranscriptEntry }) => {
 });
 
 export default function SummaryScreen() {
-    const { conversationId } = useLocalSearchParams();
+    const { conversationId, sessionId } = useLocalSearchParams();
     const router = useRouter();
     const { user } = useUser();
     const [conversation, setConversation] = useState<ConversationResponse>();
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+    // If we have a sessionId, we are viewing history (saved data)
+    const isHistoryView = !!sessionId;
 
     useEffect(() => {
-        getSummary();
-    }, []);
+        if (sessionId) {
+            fetchHistorySession(sessionId as string);
+        } else if (conversationId) {
+            getSummary();
+        }
+    }, [sessionId, conversationId]);
 
-    // Auto-refresh every 5 seconds when conversation is not done
+    // Auto-refresh every 5 seconds ONLY when conversation is active/processing and NOT in history view
     useEffect(() => {
-        if (conversation?.status && conversation.status !== "done") {
+        if (conversation?.status && conversation.status !== "done" && !isHistoryView) {
             const intervalId = setInterval(() => {
                 console.log("Auto-refreshing conversation status...");
                 getSummary();
@@ -53,9 +67,67 @@ export default function SummaryScreen() {
 
             return () => clearInterval(intervalId);
         }
-    }, [conversation?.status]);
+    }, [conversation?.status, isHistoryView]);
+
+    async function fetchHistorySession(id: string) {
+        try {
+            setIsLoadingHistory(true);
+            const docRef = doc(db, "session", id);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+
+                // Try to parse stored JSON transcript, fallback to splitting text or single bubble
+                let recoveredTranscript: TranscriptEntry[] = [];
+                if (data.transcript_json) {
+                    try {
+                        recoveredTranscript = JSON.parse(data.transcript_json);
+                    } catch (e) {
+                        console.log("Failed to parse transcript json", e);
+                    }
+                }
+
+                if (recoveredTranscript.length === 0 && data.transcript) {
+                    // Fallback: Treat typically as a simplified display
+                    recoveredTranscript = [{
+                        role: 'assistant',
+                        message: data.transcript,
+                        time_in_call_secs: 0
+                    }];
+                }
+
+                setConversation({
+                    agent_id: 'history',
+                    conversation_id: data.conv_id || 'history',
+                    status: 'done',
+                    transcript: recoveredTranscript,
+                    metadata: {
+                        start_time_unix_secs: new Date(data.created_at).getTime() / 1000,
+                        call_duration_secs: data.call_duration_secs || 0,
+                        cost: data.tokens || 0,
+                    },
+                    has_audio: false,
+                    has_user_audio: false,
+                    has_response_audio: false,
+                    analysis: {
+                        call_successful: 'success',
+                        call_summary_title: data.call_summary_title || 'History Session',
+                        transcript_summary: data.transcript_summary || data.transcript_summary || '',
+                        evaluation_criteria_results: {},
+                        data_collection_results: {},
+                    }
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching history session:", error);
+        } finally {
+            setIsLoadingHistory(false);
+        }
+    }
 
     async function getSummary() {
+        if (!conversationId) return;
         try {
             const response = await fetch(
                 `${process.env.EXPO_PUBLIC_BASE_URL}/api/conversations?conversationId=${conversationId}`
@@ -83,8 +155,11 @@ export default function SummaryScreen() {
                 conv_id: conversationId,
                 tokens: Number(conversation?.metadata?.cost),
                 call_duration_secs: Number(conversation?.metadata?.call_duration_secs),
+                // Save JSON for full fidelity restoration
+                transcript_json: JSON.stringify(conversation?.transcript),
                 transcript: conversation?.transcript.map((t) => t.message).join("\n"),
                 call_summary_title: conversation?.analysis?.call_summary_title,
+                transcript_summary: conversation?.analysis?.transcript_summary,
                 created_at: new Date().toISOString(),
             });
 
@@ -106,30 +181,10 @@ export default function SummaryScreen() {
     const formatDate = (unixSeconds: number) => {
         if (!unixSeconds) return "";
         const date = new Date(unixSeconds * 1000);
-        const now = new Date();
-        const isToday = date.toDateString() === now.toDateString();
-
-        if (isToday) {
-            return "Today, " + date.toLocaleTimeString(undefined, {
-                hour: "numeric",
-                minute: "2-digit",
-            });
-        }
-
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        if (date.toDateString() === yesterday.toDateString()) {
-            return "Yesterday, " + date.toLocaleTimeString(undefined, {
-                hour: "numeric",
-                minute: "2-digit",
-            });
-        }
-
-        return date.toLocaleDateString(undefined, {
-            month: "short",
+        return date.toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
             day: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
         });
     };
 
@@ -142,9 +197,9 @@ export default function SummaryScreen() {
 
     const getStatusLabel = () => {
         const success = conversation?.analysis?.call_successful;
-        if (success === "success") return "Successful Call";
-        if (success === "failure") return "Call Failed";
-        return "Call Completed";
+        if (success === "success") return "Successful";
+        if (success === "failure") return "Failed";
+        return "Completed";
     };
 
     const transcriptData = useMemo(
@@ -152,21 +207,34 @@ export default function SummaryScreen() {
         [conversation?.transcript]
     );
 
-    if (conversation?.status !== "done") {
+    if (isLoadingHistory || (conversation?.status !== "done")) {
         return (
             <View style={styles.container}>
                 <Gradient position="top" isSpeaking={false} />
                 <SafeAreaView style={styles.safeArea}>
+                    {isHistoryView && (
+                        <View style={styles.header}>
+                            <Pressable onPress={() => router.back()} style={styles.backButtonWrapper}>
+                                <GlassBlur style={styles.backButton} intensity={40}>
+                                    <Ionicons name="chevron-back" size={24} color="#1a1a1a" />
+                                </GlassBlur>
+                            </Pressable>
+                        </View>
+                    )}
                     <View style={styles.loadingWrapper}>
                         <View style={styles.loadingContent}>
                             <ActivityIndicator size="large" color={colors.primary} />
-                            <Text style={styles.loadingTitle}>Processing Call</Text>
-                            <Text style={styles.loadingSubtitle}>
-                                {conversation?.status || "Initializing"}...
+                            <Text style={styles.loadingTitle}>
+                                {isLoadingHistory ? "Loading History" : "Processing Call"}
                             </Text>
-                            <Pressable onPress={getSummary} style={styles.retryButton}>
-                                <Text style={styles.retryText}>Refresh</Text>
-                            </Pressable>
+                            <Text style={styles.loadingSubtitle}>
+                                {isLoadingHistory ? "Retrieving session data..." : (conversation?.status || "Initializing") + "..."}
+                            </Text>
+                            {!isLoadingHistory && (
+                                <Pressable onPress={getSummary} style={styles.retryButton}>
+                                    <Text style={styles.retryText}>Refresh</Text>
+                                </Pressable>
+                            )}
                         </View>
                     </View>
                 </SafeAreaView>
@@ -178,63 +246,76 @@ export default function SummaryScreen() {
         <View style={styles.container}>
             <Gradient position="bottom" isSpeaking={false} />
             <SafeAreaView style={styles.safeArea} edges={["top"]}>
+                {isHistoryView && (
+                    <View style={styles.header}>
+                        <Pressable onPress={() => router.back()} style={styles.backButtonWrapper}>
+                            <GlassBlur style={styles.backButton} intensity={40}>
+                                <Ionicons name="chevron-back" size={24} color="#1a1a1a" />
+                            </GlassBlur>
+                        </Pressable>
+                    </View>
+                )}
+
                 <ScrollView
                     style={styles.scrollView}
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Status Badge */}
-                    <View style={styles.statusContainer}>
-                        <View style={[styles.statusDot, { backgroundColor: getStatusColor() }]} />
-                        <Text style={styles.statusLabel}>{getStatusLabel()}</Text>
-                    </View>
-
-                    {/* Title */}
-                    <Text style={styles.title}>
-                        {conversation?.analysis?.call_summary_title || "Call Summary"}
-                    </Text>
-
-                    {/* Metadata */}
-                    <Text style={styles.dateText}>
-                        {formatDate(conversation?.metadata?.start_time_unix_secs)}
-                    </Text>
-
-                    {/* Summary Card */}
-                    <View style={styles.summarySection}>
-                        <View style={styles.gradientWrapper}>
-                            <LinearGradient
-                                colors={["rgba(0, 122, 255, 0.1)", "rgba(90, 200, 250, 0.05)"]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.summaryCard}
-                            >
-                                <Text style={styles.summaryLabel}>AI Summary</Text>
-                                <Text style={styles.summaryText}>
-                                    {conversation?.analysis?.transcript_summary.trim()}
-                                </Text>
-                            </LinearGradient>
+                    {/* Header Section */}
+                    <View style={styles.headerCentered}>
+                        <View style={[styles.statusPill, { backgroundColor: getStatusColor() + '20' }]}>
+                            <View style={[styles.statusDot, { backgroundColor: getStatusColor() }]} />
+                            <Text style={[styles.statusText, { color: getStatusColor() }]}>
+                                {getStatusLabel()}
+                            </Text>
                         </View>
+                        <Text style={styles.centeredTitle}>
+                            {conversation?.analysis?.call_summary_title || "Untitled Session"}
+                        </Text>
+                        <Text style={styles.centeredDate}>
+                            {formatDate(conversation?.metadata?.start_time_unix_secs)}
+                        </Text>
                     </View>
 
-                    {/* Stats */}
-                    <View style={styles.statsContainer}>
-                        <View style={styles.statBox}>
+                    {/* Stats Row */}
+                    <View style={styles.statsRow}>
+                        <View style={styles.statItem}>
                             <Text style={styles.statValue}>
                                 {formatDuration(conversation?.metadata?.call_duration_secs)}
                             </Text>
                             <Text style={styles.statLabel}>Duration</Text>
                         </View>
                         <View style={styles.statDivider} />
-                        <View style={styles.statBox}>
-                            <Text style={styles.statValue}>{conversation?.metadata?.cost}</Text>
+                        <View style={styles.statItem}>
+                            <Text style={styles.statValue}>
+                                {conversation?.metadata?.cost}
+                            </Text>
                             <Text style={styles.statLabel}>Tokens</Text>
                         </View>
                     </View>
 
-                    {/* Conversation */}
-                    <View style={styles.conversationSection}>
-                        <Text style={styles.sectionTitle}>Conversation</Text>
-                        <View style={styles.conversationList}>
+                    {/* AI Summary Section */}
+                    <View style={styles.sectionContainer}>
+                        <LinearGradient
+                            colors={["rgba(50, 50, 50, 0.05)", "rgba(0, 0, 0, 0.02)"]}
+                            style={styles.glassCard}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                        >
+                            <View style={styles.cardHeaderRow}>
+                                <Ionicons name="sparkles-sharp" size={16} color={colors.primary} />
+                                <Text style={styles.cardTitle}>AI Summary</Text>
+                            </View>
+                            <Text style={styles.summaryText}>
+                                {conversation?.analysis?.transcript_summary.trim()}
+                            </Text>
+                        </LinearGradient>
+                    </View>
+
+                    {/* Transcript Section */}
+                    <View style={styles.sectionContainer}>
+                        <Text style={styles.sectionHeader}>Transcript</Text>
+                        <View style={styles.transcriptList}>
                             {transcriptData.map((item, index) => (
                                 <MessageBubble key={`msg-${index}`} item={item} />
                             ))}
@@ -242,21 +323,20 @@ export default function SummaryScreen() {
                     </View>
 
                     {/* Save Button */}
-                    <View style={styles.saveButtonContainer}>
-                        <Pressable
-                            onPress={saveAndContinue}
-                            disabled={isSaving}
-                            style={[
-                                styles.saveButton,
-                                isSaving && styles.saveButtonDisabled,
-                            ]}
-                            android_ripple={{ color: 'rgba(255,255,255,0.3)' }}
-                        >
-                            <Text style={styles.saveButtonText}>
-                                {isSaving ? "Saving..." : "Save & Continue"}
-                            </Text>
-                        </Pressable>
-                    </View>
+                    {!isHistoryView && (
+                        <View style={styles.footer}>
+                            <Pressable
+                                onPress={saveAndContinue}
+                                disabled={isSaving}
+                                style={[styles.actionButton, isSaving && styles.disabledButton]}
+                            >
+                                <Text style={styles.actionButtonText}>
+                                    {isSaving ? "Saving..." : "Save Session"}
+                                </Text>
+                            </Pressable>
+                        </View>
+                    )}
+                    <View style={{ height: 40 }} />
                 </ScrollView>
             </SafeAreaView>
         </View>
@@ -271,160 +351,199 @@ const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
     },
+    header: {
+        position: 'absolute',
+        top: 50, // Push down into viewable area
+        left: 24,
+        zIndex: 10,
+    },
+    backButtonWrapper: {
+        borderRadius: 22,
+    },
+    backButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    },
     scrollView: {
         flex: 1,
     },
     scrollContent: {
-        padding: 24,
-        paddingTop: 16,
+        paddingTop: 80, // Add padding for fixed header
+        paddingBottom: 40,
     },
     loadingWrapper: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        padding: 24,
     },
     loadingContent: {
         alignItems: "center",
         gap: 16,
     },
     loadingTitle: {
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: "700",
-        color: "#000000",
-        marginTop: 8,
+        color: "#1a1a1a",
     },
     loadingSubtitle: {
-        fontSize: 16,
-        color: colors.gray,
-        textTransform: "capitalize",
+        fontSize: 15,
+        color: "#666",
     },
     retryButton: {
         marginTop: 12,
         paddingVertical: 10,
         paddingHorizontal: 24,
-        backgroundColor: colors.gray6,
-        borderRadius: 12,
+        backgroundColor: "#F2F2F7",
+        borderRadius: 20,
     },
     retryText: {
         fontSize: 15,
         fontWeight: "600",
-        color: colors.primary,
+        color: "#007AFF",
     },
-    statusContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        alignSelf: "flex-start",
-        backgroundColor: "rgba(0, 0, 0, 0.03)",
+
+    // Header Centered
+    headerCentered: {
+        alignItems: 'center',
+        marginBottom: 32,
+        paddingHorizontal: 24,
+    },
+    statusPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
         paddingHorizontal: 12,
         paddingVertical: 6,
-        borderRadius: 16,
-        marginBottom: 16,
+        borderRadius: 20,
         gap: 6,
+        marginBottom: 16,
     },
     statusDot: {
         width: 6,
         height: 6,
         borderRadius: 3,
     },
-    statusLabel: {
+    statusText: {
         fontSize: 13,
-        fontWeight: "600",
-        color: "#000000",
+        fontWeight: '600',
     },
-    title: {
-        fontSize: 32,
-        fontWeight: "800",
-        color: "#000000",
+    centeredTitle: {
+        fontSize: 32, // Large
+        fontWeight: '800',
+        color: '#000',
         lineHeight: 38,
+        textAlign: 'center',
         marginBottom: 8,
     },
-    dateText: {
+    centeredDate: {
         fontSize: 15,
-        color: colors.gray2,
-        marginBottom: 24,
+        color: '#8E8E93',
+        fontWeight: '500',
     },
-    summarySection: {
-        marginBottom: 24,
+
+    // Stats Row
+    statsRow: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 40,
+        gap: 40,
     },
-    gradientWrapper: {
-        borderRadius: 20,
-        overflow: "hidden",
-    },
-    summaryCard: {
-        padding: 20,
-        borderWidth: 1,
-        borderColor: "rgba(0, 122, 255, 0.1)",
-    },
-    summaryLabel: {
-        fontSize: 11,
-        fontWeight: "700",
-        color: colors.primary,
-        textTransform: "uppercase",
-        letterSpacing: 1.2,
-        marginBottom: 12,
-    },
-    summaryText: {
-        fontSize: 16,
-        lineHeight: 24,
-        color: "#1c1c1e",
-    },
-    statsContainer: {
-        flexDirection: "row",
-        backgroundColor: "#F8F9FA",
-        borderRadius: 16,
-        padding: 20,
-        marginBottom: 32,
-        alignItems: "center",
-    },
-    statBox: {
-        flex: 1,
-        alignItems: "center",
-    },
-    statDivider: {
-        width: 1,
-        height: 40,
-        backgroundColor: "#E0E0E0",
+    statItem: {
+        alignItems: 'center',
     },
     statValue: {
         fontSize: 24,
-        fontWeight: "800",
-        color: "#000000",
+        fontWeight: '700',
+        color: '#000',
         marginBottom: 4,
     },
     statLabel: {
         fontSize: 13,
-        color: colors.gray,
-        fontWeight: "500",
+        color: '#888',
+        fontWeight: '600',
+        letterSpacing: 0.5,
     },
-    conversationSection: {
-        marginBottom: 24,
+    statDivider: {
+        width: 1,
+        height: 32,
+        backgroundColor: '#E5E5EA',
     },
-    sectionTitle: {
+
+    // Summary Section
+    sectionContainer: {
+        paddingHorizontal: 24,
+        marginBottom: 32,
+    },
+    glassCard: {
+        padding: 20, // Reduced padding
+        borderRadius: 20, // Slightly smaller radius
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.03)',
+        backgroundColor: 'rgba(240, 240, 245, 0.5)', // Subtle backdrop
+    },
+    cardHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 8, // Tighter spacing
+    },
+    cardTitle: {
+        fontSize: 12, // Slightly smaller
+        fontWeight: '600',
+        color: colors.primary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+    },
+    summaryText: {
+        fontSize: 15, // Slightly smaller text for minimal feel
+        lineHeight: 22,
+        color: '#444', // Softer black
+        fontWeight: '400',
+    },
+    sectionHeader: {
         fontSize: 20,
-        fontWeight: "700",
-        color: "#000000",
+        fontWeight: '700',
+        color: '#1a1a1a',
         marginBottom: 16,
     },
-    conversationList: {
-        gap: 0,
+
+    // Transcript (Existing)
+    transcriptList: {
+        gap: 16,
     },
-    messageContainer: {
-        width: "100%",
+    messageRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: 8,
         marginBottom: 12,
-        paddingHorizontal: 4,
     },
-    userMessageContainer: {
-        alignItems: "flex-end",
+    userRow: {
+        justifyContent: 'flex-end',
+    },
+    aiRow: {
+        justifyContent: 'flex-start',
+    },
+    avatarPlaceholder: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: colors.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 4,
     },
     bubble: {
-        maxWidth: "80%",
+        maxWidth: '80%',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        borderRadius: 18,
+        borderRadius: 20,
     },
     aiBubble: {
-        backgroundColor: "#F0F0F0",
+        backgroundColor: '#F2F2F7',
         borderBottomLeftRadius: 4,
     },
     userBubble: {
@@ -432,39 +551,32 @@ const styles = StyleSheet.create({
         borderBottomRightRadius: 4,
     },
     bubbleText: {
-        fontSize: 15,
-        lineHeight: 21,
-        color: "#1c1c1e",
+        fontSize: 16,
+        lineHeight: 22,
+        color: '#000',
     },
     userBubbleText: {
-        color: "#FFFFFF",
+        color: '#FFF',
     },
-    saveButtonContainer: {
-        marginTop: 15,
-        marginBottom: 40,
+
+    // Footer (Action Button)
+    footer: {
+        paddingHorizontal: 24,
+        marginBottom: 20,
     },
-    saveButton: {
-        height: 64,
-        borderRadius: 32,
-        backgroundColor: '#007AFF',
+    actionButton: {
+        height: 56,
+        backgroundColor: '#000',
+        borderRadius: 28,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: "#007AFF",
-        shadowOffset: {
-            width: 0,
-            height: 8,
-        },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 8,
     },
-    saveButtonDisabled: {
-        opacity: 0.7,
+    disabledButton: {
+        opacity: 0.6,
     },
-    saveButtonText: {
-        fontSize: 18,
-        fontWeight: "600",
-        color: "#FFFFFF",
-        letterSpacing: 0.5,
+    actionButtonText: {
+        fontSize: 17,
+        fontWeight: '600',
+        color: '#FFF',
     },
 });
