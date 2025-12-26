@@ -93,11 +93,9 @@ export default function LibraryScreen() {
 
     return (
         <View style={styles.container}>
-            {/* iOS Premium Glass Header */}
-            <BlurView
-                intensity={90}
-                tint="light"
-                style={[styles.glassHeader, { paddingTop: insets.top }]}
+            {/* iOS Premium Header (Solid White) */}
+            <View
+                style={[styles.glassHeader, { paddingTop: insets.top + 5, backgroundColor: '#FFFFFF' }]}
             >
                 <View style={styles.headerContent}>
                     <Text style={styles.headerTitleLarge}>Library</Text>
@@ -116,12 +114,12 @@ export default function LibraryScreen() {
                         </TouchableOpacity>
                     </View>
                 </View>
-            </BlurView>
+            </View>
 
             <ScrollView
                 contentContainerStyle={[
                     styles.scrollContent,
-                    { paddingTop: insets.top + 80 }
+                    { paddingTop: insets.top + 90 }
                 ]}
                 showsVerticalScrollIndicator={false}
             >

@@ -25,3 +25,12 @@ export const colors = {
   gray5: "#E5E5EA",
   gray6: "#F2F2F7",
 };
+
+export const sessionThemes = [
+  { primary: colors.blue, background: "#EBF5FF", icon: colors.blue },    // Blue
+  { primary: colors.green, background: "#F0FDF4", icon: colors.green },  // Green
+  { primary: colors.orange, background: "#FFF7ED", icon: colors.orange },// Orange
+  { primary: colors.purple, background: "#FAF5FF", icon: colors.purple },// Purple
+  { primary: colors.pink, background: "#FDF2F8", icon: colors.pink },    // Pink
+  { primary: colors.teal, background: "#F0FDFA", icon: colors.teal },    // Teal
+];
