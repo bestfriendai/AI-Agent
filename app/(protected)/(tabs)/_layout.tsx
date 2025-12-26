@@ -2,12 +2,17 @@ import { CustomTabBar } from '@/components/CustomTabBar';
 import { Tabs } from 'expo-router';
 import React from 'react';
 
+export const unstable_settings = {
+    initialRouteName: 'index',
+};
+
 export default function TabLayout() {
     return (
         <Tabs
             tabBar={(props) => <CustomTabBar {...props} />}
             screenOptions={{
                 headerShown: false,
+                lazy: false, // Ensure tabs are rendered to avoid missing route issues on initial load
             }}>
             <Tabs.Screen
                 name="index"
@@ -22,9 +27,9 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
-                name="profile"
+                name="history"
                 options={{
-                    title: 'Profile',
+                    title: 'History',
                 }}
             />
             <Tabs.Screen

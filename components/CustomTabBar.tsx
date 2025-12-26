@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GlassBlur } from './GlassBlur';
+
 
 export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     const insets = useSafeAreaInsets();
@@ -56,7 +56,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
         <View style={[styles.container, { bottom: insets.bottom + 10 }]}>
             {/* Main Tabs Group */}
             <View style={styles.tabGroupContainer}>
-                <GlassBlur style={styles.blurContainer}>
+                <View style={[styles.blurContainer, { backgroundColor: '#ffffff' }]}>
                     <View
                         style={styles.tabGroupInner}
                         onLayout={(e: LayoutChangeEvent) => setTotalWidth(e.nativeEvent.layout.width)}
@@ -88,9 +88,9 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                             if (route.name === 'index') {
                                 iconName = isFocused ? "home" : "home-outline";
                             } else if (route.name === 'library') {
-                                iconName = isFocused ? "musical-notes" : "musical-notes-outline";
-                            } else if (route.name === 'profile') {
-                                iconName = isFocused ? "person" : "person-outline";
+                                iconName = isFocused ? "library" : "library-outline";
+                            } else if (route.name === 'history') {
+                                iconName = isFocused ? "layers" : "layers-outline";
                             }
 
                             return (
@@ -116,7 +116,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                             )
                         })}
                     </View>
-                </GlassBlur>
+                </View>
             </View>
 
             {/* Search/Explore Button */}
@@ -129,9 +129,9 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                     }}
                     accessibilityRole="button"
                 >
-                    <GlassBlur style={styles.searchButtonBlur}>
+                    <View style={[styles.searchButtonBlur, { backgroundColor: '#ffffff' }]}>
                         <Ionicons name="search" size={24} color="#000000" />
-                    </GlassBlur>
+                    </View>
                 </TouchableOpacity>
             )}
         </View>
