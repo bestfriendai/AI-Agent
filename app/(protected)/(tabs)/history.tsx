@@ -1,5 +1,5 @@
 import { PullToRefreshSectionList } from "@/components/PullToRefreshSectionList";
-import { sessionThemes } from "@/utils/colors";
+import { colors, sessionThemes } from "@/utils/colors";
 import { db } from "@/utils/firebase";
 import { Session } from "@/utils/types";
 import { useUser } from "@clerk/clerk-expo";
@@ -158,14 +158,38 @@ export default function HistoryScreen() {
 
     const renderEmptyState = () => (
         <Animated.View
-            entering={FadeInDown.delay(300).duration(400)}
+            entering={FadeInDown.delay(200).duration(800).springify()}
             style={styles.emptyContainer}
         >
-            <View style={styles.emptyIconCircle}>
-                <Ionicons name="chatbubble-ellipses-outline" size={32} color="#999" />
+            {/* Ghost Cards Visualization */}
+            <View style={styles.ghostStack}>
+                {/* Bottom Ghost (Faintest) */}
+                <View style={[styles.ghostCard, styles.ghostCardBottom]} />
+                {/* Middle Ghost */}
+                <View style={[styles.ghostCard, styles.ghostCardMiddle]} />
+                {/* Top Ghost (Most visible) */}
+                <View style={[styles.ghostCard, styles.ghostCardTop]}>
+                    <View style={styles.ghostRow}>
+                        <View style={styles.ghostAvatar} />
+                        <View style={styles.ghostLines}>
+                            <View style={styles.ghostLineShort} />
+                            <View style={styles.ghostLineLong} />
+                        </View>
+                    </View>
+                </View>
+
+                {/* Floating Icon Overlay */}
+                <View style={styles.ghostIconOverlay}>
+                    <Ionicons name="journal-outline" size={32} color="#6B7280" />
+                </View>
             </View>
-            <Text style={styles.emptyTitle}>No sessions yet</Text>
-            <Text style={styles.emptySubtitle}>Start a new conversation to see it here.</Text>
+
+            <Text style={styles.emptyTitle}>Your History is Empty</Text>
+            <Text style={styles.emptySubtitle}>
+                Conversations will be saved here automatically.{'\n'}Start a new session to begin.
+            </Text>
+
+            {/* Button removed as requested */}
         </Animated.View>
     );
 
@@ -252,7 +276,7 @@ export default function HistoryScreen() {
     if (loading && sections.length === 0) {
         return (
             <View style={[styles.container, styles.centerContent]}>
-                <ActivityIndicator size="small" color="#000" />
+                <ActivityIndicator size="small" color={colors.primary} />
             </View>
         );
     }
@@ -274,7 +298,8 @@ export default function HistoryScreen() {
                         styles.listContent,
                         {
                             paddingBottom: insets.bottom + 100,
-                            paddingTop: insets.top + 90
+                            paddingTop: insets.top + 90,
+                            flexGrow: 1,
                         }
                     ]}
                     ListEmptyComponent={renderEmptyState}
@@ -506,30 +531,110 @@ const styles = StyleSheet.create({
 
     // Empty State
     emptyContainer: {
+        flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        marginTop: 100,
-        padding: 20,
+        paddingHorizontal: 40,
     },
-    emptyIconCircle: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        backgroundColor: "#F3F4F6",
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: 16,
+    ghostStack: {
+        width: 250,
+        height: 140,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 32,
+        position: 'relative',
+    },
+    ghostCard: {
+        position: 'absolute',
+        width: '100%',
+        height: 80,
+        borderRadius: 20,
+        backgroundColor: '#F3F4F6',
+        borderWidth: 1,
+        borderColor: '#FFFFFF',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    ghostCardBottom: {
+        width: '80%',
+        top: 0,
+        opacity: 0.4,
+        transform: [{ scale: 0.85 }],
+    },
+    ghostCardMiddle: {
+        width: '90%',
+        top: 15,
+        opacity: 0.7,
+        transform: [{ scale: 0.92 }],
+    },
+    ghostCardTop: {
+        width: '100%',
+        top: 30,
+        backgroundColor: '#FFFFFF',
+        height: 90,
+        justifyContent: 'center',
+        paddingHorizontal: 20,
+        shadowOpacity: 0.1,
+        elevation: 4,
+    },
+    ghostRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        opacity: 0.5,
+    },
+    ghostAvatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#E5E7EB',
+    },
+    ghostLines: {
+        flex: 1,
+        gap: 8,
+    },
+    ghostLineShort: {
+        width: '60%',
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#E5E7EB',
+    },
+    ghostLineLong: {
+        width: '90%',
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#F3F4F6',
+    },
+    ghostIconOverlay: {
+        position: 'absolute',
+        bottom: -15,
+        right: -10,
+        backgroundColor: '#FFFFFF',
+        padding: 10,
+        borderRadius: 16,
+        shadowColor: "#6366F1",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 6,
+        transform: [{ rotate: '-5deg' }],
     },
     emptyTitle: {
-        fontSize: 20,
-        fontWeight: "700", // Bolder
+        fontSize: 22,
+        fontWeight: "700",
         color: "#111827",
-        marginBottom: 8,
+        marginBottom: 12,
+        textAlign: 'center',
+        letterSpacing: -0.5,
     },
     emptySubtitle: {
-        fontSize: 15,
+        fontSize: 16,
         color: "#6B7280",
         textAlign: "center",
-        lineHeight: 22,
+        lineHeight: 24,
+        marginBottom: 32,
     },
 });
