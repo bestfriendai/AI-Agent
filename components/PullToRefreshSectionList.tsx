@@ -1,14 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
     ActivityIndicator,
-    SectionList,
+    SectionList as RNSectionList,
     SectionListProps,
     StyleSheet,
     View,
 } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import {
+    Gesture,
+    GestureDetector,
+    createNativeWrapper,
+} from "react-native-gesture-handler";
 import Animated, {
     Extrapolation,
     interpolate,
@@ -18,7 +22,7 @@ import Animated, {
     useAnimatedStyle,
     useSharedValue,
     withSpring,
-    type SharedValue
+    type SharedValue,
 } from "react-native-reanimated";
 
 // ----------------------------------------------------------------------
@@ -39,10 +43,10 @@ interface PullToRefreshSectionListProps<ItemT, SectionT>
 const PULL_THRESHOLD = 90;
 const REFRESH_HEIGHT = 70;
 const SPRING_CONFIG = {
-    damping: 30, // Higher damping = less oscillation
+    damping: 30,
     stiffness: 100,
     mass: 1,
-    overshootClamping: true, // No bouncing past the target
+    overshootClamping: true,
 };
 
 // ----------------------------------------------------------------------
@@ -60,18 +64,18 @@ const RefreshIndicator = ({
     topOffset: number;
     refreshColor: string;
 }) => {
-    // 1. Container Style (Position & Opacity)
+    // 1. Container Style
     const containerStyle = useAnimatedStyle(() => {
         const opacity = interpolate(
             pullY.value,
-            [15, 50], // Start appearing later
+            [15, 50],
             [0, 1],
             Extrapolation.CLAMP
         );
         const translateY = interpolate(
             pullY.value,
             [0, PULL_THRESHOLD],
-            [-60, 20], // Move much further up when idle (-60) to hide behind header
+            [-60, 20],
             Extrapolation.EXTEND
         );
 
@@ -82,7 +86,7 @@ const RefreshIndicator = ({
         };
     });
 
-    // 2. Icon Rotation (Arrow)
+    // 2. Icon Rotation
     const arrowStyle = useAnimatedStyle(() => {
         const rotate = interpolate(
             pullY.value,
@@ -109,19 +113,13 @@ const RefreshIndicator = ({
     return (
         <Animated.View style={[styles.indicatorContainer, containerStyle]}>
             <View style={styles.indicatorCircle}>
-                {/* Dragging Arrow */}
                 <Animated.View style={arrowStyle}>
                     <Ionicons name="arrow-down" size={20} color={refreshColor} />
                 </Animated.View>
 
-                {/* Refreshing Spinner or Check */}
                 <Animated.View style={statusIconStyle}>
                     {state === "done" ? (
-                        <Ionicons
-                            name="checkmark"
-                            size={22}
-                            color={refreshColor}
-                        />
+                        <Ionicons name="checkmark" size={22} color={refreshColor} />
                     ) : (
                         <ActivityIndicator size="small" color={refreshColor} />
                     )}
@@ -135,7 +133,9 @@ const RefreshIndicator = ({
 // Main Component
 // ----------------------------------------------------------------------
 
-const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
+// Create a GestureHandler-aware SectionList
+const WrappedSectionList = createNativeWrapper(RNSectionList, {});
+const AnimatedSectionList = Animated.createAnimatedComponent(WrappedSectionList);
 
 export function PullToRefreshSectionList<ItemT, SectionT>({
     onRefresh,
@@ -149,10 +149,12 @@ export function PullToRefreshSectionList<ItemT, SectionT>({
         "idle" | "pulling" | "refreshing" | "done"
     >("idle");
 
-    // Shared Values
     const pullY = useSharedValue(0);
     const scrollY = useSharedValue(0);
     const isDragging = useSharedValue(false);
+
+    // Ref for the list to coordinate gestures
+    const listRef = useRef<any>(null);
 
     // --------------------------------------------------
     // Logic
@@ -164,7 +166,6 @@ export function PullToRefreshSectionList<ItemT, SectionT>({
 
     const handleRefreshComplete = useCallback(() => {
         setRefreshState("done");
-        // Hold the "done" state briefly, then spring back
         setTimeout(() => {
             pullY.value = withSpring(0, SPRING_CONFIG, (finished) => {
                 if (finished) {
@@ -179,8 +180,6 @@ export function PullToRefreshSectionList<ItemT, SectionT>({
 
         setRefreshState("refreshing");
         hapticImpact(Haptics.ImpactFeedbackStyle.Medium);
-
-        // Snap to refresh height
         pullY.value = withSpring(REFRESH_HEIGHT, SPRING_CONFIG);
 
         try {
@@ -204,28 +203,30 @@ export function PullToRefreshSectionList<ItemT, SectionT>({
     });
 
     const panGesture = Gesture.Pan()
-        // Determine whether to allow the pan
+        // Combine with the List's native scroll gesture
+        .simultaneousWithExternalGesture(listRef)
         .onStart(() => {
-            // Do not eagerly capture. Wait for direction in onUpdate.
+            // No strict conditions here, evaluate in onUpdate for smoother catching
         })
         .onUpdate((e) => {
-            if (!isDragging.value) {
-                // Only start dragging if we are at top AND pulling down
-                // Using 1 as threshold to handle minor bounce/precision issues
-                if (scrollY.value <= 1 && e.translationY > 0) {
-                    isDragging.value = true;
-                }
-            }
+            // Active if we are at the top (or negative scroll on iOS) and pulling down
+            // On Android, scrollY stays 0 when stopped at top.
+            // e.translationY > 0 means pulling DOWN.
 
-            if (isDragging.value) {
-                if (e.translationY > 0) {
-                    // Pulling down - apply resistance
-                    const friction = 0.55;
-                    pullY.value = e.translationY * friction;
-                } else {
-                    // Moving up into the list
-                    pullY.value = 0;
-                }
+            const isAtTop = scrollY.value <= 1; // Tolerance for floating point
+            const isPullingDown = e.translationY > 0;
+
+            if (isAtTop && isPullingDown) {
+                // We are pulling the refresher
+                isDragging.value = true;
+
+                // Apply friction
+                const friction = 0.55;
+                pullY.value = e.translationY * friction;
+            } else {
+                // We are scrolling normally or not at top
+                isDragging.value = false;
+                pullY.value = 0;
             }
         })
         .onEnd(() => {
@@ -237,12 +238,9 @@ export function PullToRefreshSectionList<ItemT, SectionT>({
                     pullY.value = withSpring(0, SPRING_CONFIG);
                 }
             }
-        })
-        // Combine with Native gesture (scrolling)
-        // We let them recognize simultaneously, but our logic above determines behavior
-        .simultaneousWithExternalGesture(Gesture.Native());
+        });
 
-    // Haptic Trigger on Threshold Cross
+    // Haptic Trigger
     useAnimatedReaction(
         () => pullY.value,
         (current, previous) => {
@@ -261,7 +259,6 @@ export function PullToRefreshSectionList<ItemT, SectionT>({
     // Styles
     // --------------------------------------------------
 
-    // The entire list moves down
     const listAnimatedStyle = useAnimatedStyle(() => ({
         transform: [{ translateY: pullY.value }],
     }));
@@ -280,12 +277,12 @@ export function PullToRefreshSectionList<ItemT, SectionT>({
             <GestureDetector gesture={panGesture}>
                 <Animated.View style={[styles.flexOne, listAnimatedStyle]}>
                     <AnimatedSectionListAny
+                        ref={listRef}
                         {...props}
                         onScroll={scrollHandler}
                         scrollEventThrottle={16}
                         bounces={false}
                         contentContainerStyle={contentContainerStyle}
-                    // Ensure we pass the ref-like props if needed, though usually not needed for basic P2R
                     />
                 </Animated.View>
             </GestureDetector>

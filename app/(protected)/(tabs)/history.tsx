@@ -1,4 +1,3 @@
-import { GlassBlur } from "@/components/GlassBlur";
 import { PullToRefreshSectionList } from "@/components/PullToRefreshSectionList";
 import { sessionThemes } from "@/utils/colors";
 import { db } from "@/utils/firebase";
@@ -130,9 +129,9 @@ export default function HistoryScreen() {
     };
 
     const renderHeader = () => (
-        <GlassBlur
-            intensity={90}
+        <View
             style={[styles.glassHeader, { paddingTop: insets.top + 5 }]}
+            pointerEvents="box-none"
         >
             <View style={styles.headerContent}>
                 <Text style={styles.headerTitleLarge}>History</Text>
@@ -140,7 +139,10 @@ export default function HistoryScreen() {
                     <TouchableOpacity style={styles.moreButton}>
                         <Ionicons name="search" size={20} color="#000" />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.avatarButton}>
+                    <TouchableOpacity
+                        style={styles.avatarButton}
+                        onPress={() => router.push("/profile")}
+                    >
                         {user?.imageUrl ? (
                             <Image source={{ uri: user.imageUrl }} style={styles.avatarImage} />
                         ) : (
@@ -151,7 +153,7 @@ export default function HistoryScreen() {
                     </TouchableOpacity>
                 </View>
             </View>
-        </GlassBlur>
+        </View>
     );
 
     const renderEmptyState = () => (
@@ -301,7 +303,7 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         zIndex: 100,
-        backgroundColor: 'rgba(255,255,255,0.0)',
+        backgroundColor: '#FFFFFF',
     },
     headerContent: {
         height: 60,
