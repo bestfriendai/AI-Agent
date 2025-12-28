@@ -5,22 +5,31 @@ import { useAuth, useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { useCallback, useEffect, useState } from "react";
 import {
     Dimensions,
     Modal,
-    RefreshControl,
     ScrollView,
     StatusBar,
     StyleSheet,
     Switch,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
-import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import Animated, {
+    Easing,
+    FadeInDown,
+    FadeInUp,
+    cancelAnimation,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withTiming
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get('window');
@@ -54,8 +63,16 @@ const BentoCard = ({ children, style, delay = 0, colSpan = 1 }: any) => (
 
 const ActivityBar = ({ height, label, active }: any) => (
     <View style={styles.activityBarContainer}>
-        <View style={[styles.activityBar, { height, backgroundColor: active ? COLORS.accent : '#E4E4E7' }]} />
-        <Text style={[styles.activityLabel, active && { color: COLORS.primary }]}>{label}</Text>
+        <View style={styles.barTrack}>
+            <LinearGradient
+                colors={active ? ['#3B82F6', '#60A5FA'] : ['#93C5FD', '#BFDBFE']}
+                start={{ x: 0, y: 1 }}
+                end={{ x: 0, y: 0 }}
+                style={[styles.activityBarGradient, { height: `${height}%`, opacity: active ? 1 : 1 }]}
+            />
+        </View>
+        <Text style={[styles.activityLabel, active && styles.activeLabel]}>{label}</Text>
+        {active && <View style={styles.activeDot} />}
     </View>
 );
 
@@ -128,6 +145,13 @@ export default function ProfileScreen() {
     const [privacyMode, setPrivacyMode] = useState(false);
     const [settingsVisible, setSettingsVisible] = useState(false);
 
+    const spinValue = useSharedValue(0);
+    const animatedSpinStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ rotate: `${spinValue.value * 360}deg` }]
+        };
+    });
+
 
     const parseDate = (date: any): Date => {
         if (!date) return new Date();
@@ -189,7 +213,15 @@ export default function ProfileScreen() {
 
     const onRefresh = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setTimeout(() => setIsRefreshing(false), 500);
+        setIsRefreshing(true);
+        spinValue.value = withRepeat(withTiming(1, { duration: 1000, easing: Easing.linear }), -1, false);
+
+        // Simulate refresh duration
+        setTimeout(() => {
+            setIsRefreshing(false);
+            spinValue.value = 0; // Reset spinner
+            cancelAnimation(spinValue);
+        }, 1500);
     };
 
     const calculateStreak = (sessions: Session[]) => {
@@ -243,7 +275,7 @@ export default function ProfileScreen() {
         });
 
         const maxVal = Math.max(...activity, 1);
-        return activity.map(v => (v / maxVal) * 80);
+        return activity.map(v => (v / maxVal) * 100);
     };
 
     // Calculate streak from breathing exercises
@@ -304,7 +336,7 @@ export default function ProfileScreen() {
         });
 
         const maxVal = Math.max(...activity, 1);
-        return activity.map(v => (v / maxVal) * 80);
+        return activity.map(v => (v / maxVal) * 100);
     };
 
 
@@ -325,18 +357,27 @@ export default function ProfileScreen() {
                 <View style={{ flex: 1, alignItems: 'center' }}>
                     <Text style={styles.headerTitle}>Profile</Text>
                 </View>
-                <TouchableOpacity
-                    style={styles.settingsBtn}
-                    onPress={() => setSettingsVisible(true)}
-                >
-                    <Ionicons name="settings-outline" size={20} color={COLORS.primary} />
-                </TouchableOpacity>
+                <View style={styles.headerRight}>
+                    <TouchableOpacity
+                        style={styles.settingsBtn}
+                        onPress={onRefresh}
+                    >
+                        <Animated.View style={animatedSpinStyle}>
+                            <Ionicons name="refresh" size={20} color={COLORS.primary} />
+                        </Animated.View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.settingsBtn}
+                        onPress={() => setSettingsVisible(true)}
+                    >
+                        <Ionicons name="settings-outline" size={20} color={COLORS.primary} />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
             >
 
                 <Animated.View entering={FadeInDown.duration(600)} style={styles.identityRow}>
@@ -372,7 +413,7 @@ export default function ProfileScreen() {
                     </View>
 
                     <View style={styles.gridRow}>
-                        <BentoCard colSpan={3} delay={300} style={{ height: 160 }}>
+                        <BentoCard colSpan={3} delay={300} style={{ height: 180 }}>
                             <View style={styles.cardHeader}>
                                 <Ionicons name="bar-chart" size={16} color={COLORS.secondary} />
                                 <Text style={styles.cardLabel}>WEEKLY ACTIVITY</Text>
@@ -463,8 +504,13 @@ const styles = StyleSheet.create({
         fontSize: 32,
         fontWeight: '800',
         color: COLORS.primary,
+        letterSpacing: -1,
     },
-
+    headerRight: {
+        flexDirection: 'row',
+        gap: 12,
+        alignItems: 'center',
+    },
     settingsBtn: {
         width: 40,
         height: 40,
@@ -498,6 +544,7 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: '700',
         color: COLORS.primary,
+        letterSpacing: -0.5,
     },
     userEmail: {
         fontSize: 14,
@@ -551,6 +598,7 @@ const styles = StyleSheet.create({
         color: COLORS.primary,
         fontSize: 36,
         fontWeight: '700',
+        letterSpacing: -1,
     },
     timeUnit: {
         color: COLORS.secondary,
@@ -563,39 +611,64 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: '700',
         marginTop: 4,
+        letterSpacing: 0.5,
     },
     cardValue: {
         color: COLORS.primary,
         fontSize: 24,
         fontWeight: '700',
+        letterSpacing: -0.5,
     },
     cardValueSmall: {
         color: COLORS.primary,
         fontSize: 20,
         fontWeight: '700',
+        letterSpacing: -0.5,
     },
 
 
     chartContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-end',
-        height: 90,
+        height: 125,
         paddingBottom: 4,
     },
     activityBarContainer: {
         alignItems: 'center',
+        justifyContent: 'flex-end',
+        height: '100%',
         gap: 8,
+        width: 34,
     },
-    activityBar: {
-        width: 6,
-        borderRadius: 3,
-        backgroundColor: '#E4E4E7',
+    barTrack: {
+        width: 14,
+        flex: 1,
+        backgroundColor: '#F1F5F9', // Softer grey
+        borderRadius: 12, // Fully rounded
+        overflow: 'hidden',
+        justifyContent: 'flex-end',
+    },
+    activityBarGradient: {
+        width: '100%',
+        borderRadius: 12,
     },
     activityLabel: {
         color: COLORS.secondary,
-        fontSize: 10,
+        fontSize: 12,
         fontWeight: '600',
+        marginBottom: 2,
+    },
+    activeLabel: {
+        color: COLORS.primary,
+        fontWeight: '800',
+    },
+    activeDot: {
+        position: 'absolute',
+        bottom: -6,
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: COLORS.primary,
     },
 
 
