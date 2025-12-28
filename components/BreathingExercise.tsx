@@ -20,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import ExerciseCompletionScreen from './ExerciseCompletionScreen';
 
 const { width } = Dimensions.get('window');
 const BLOB_SIZE = width * 1.5;
@@ -41,6 +42,12 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
     const progress = useSharedValue(0);
     const isInhaling = useSharedValue(true);
     const [instruction, setInstruction] = useState('Breathe in');
+    const [showCompletion, setShowCompletion] = useState(false);
+    const [achievementEarned, setAchievementEarned] = useState<{
+        title: string;
+        description: string;
+        icon: keyof typeof Ionicons.glyphMap;
+    } | undefined>(undefined);
 
     // Timer Logic
     const durationString = session?.duration || '3 min';
@@ -100,7 +107,16 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
                 totalDurationSeconds: actualDurationSeconds,
             });
 
-            await addBreathingExerciseAchievement(user.id);
+            const achievementResult = await addBreathingExerciseAchievement(user.id);
+
+            // Check if a new achievement was earned
+            if (achievementResult?.newlyAwarded) {
+                setAchievementEarned({
+                    title: 'First Breath',
+                    description: 'Completed your first breathing exercise',
+                    icon: 'trophy',
+                });
+            }
 
             console.log('✅ Session data saved and achievement checked');
         } catch (error) {
@@ -114,7 +130,11 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
                 if (prev <= 1) {
                     clearInterval(timer);
                     handleSessionComplete().then(() => {
-                        router.back();
+                        setShowCompletion(true);
+                        // Stop audio when showing completion
+                        if (player) {
+                            player.pause();
+                        }
                     });
                     return 0;
                 }
@@ -174,6 +194,19 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
         }
     });
 
+    // Show completion screen when exercise is done
+    if (showCompletion) {
+        return (
+            <ExerciseCompletionScreen
+                sessionTitle={session?.title || 'Breathing Exercise'}
+                durationMinutes={parseInt(session?.duration || '3')}
+                accentColor={blobColor}
+                achievement={achievementEarned}
+                onComplete={() => router.back()}
+            />
+        );
+    }
+
     return (
         <View style={styles.container}>
             <TouchableOpacity
@@ -202,6 +235,8 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
                     </BlurView>
                 </TouchableOpacity>
             )}
+
+
 
             <View style={styles.textContainer}>
                 {session?.title && (

@@ -50,7 +50,9 @@ export async function hasAchievement(
     }
 }
 
-export async function addBreathingExerciseAchievement(userId: string): Promise<void> {
+export async function addBreathingExerciseAchievement(
+    userId: string
+): Promise<{ newlyAwarded: boolean }> {
     const achievementType = 'breathing_exercise_completed';
     const hasIt = await hasAchievement(userId, achievementType);
 
@@ -61,5 +63,8 @@ export async function addBreathingExerciseAchievement(userId: string): Promise<v
             'First Breath',
             'Completed your first breathing exercise'
         );
+        return { newlyAwarded: true };
     }
+
+    return { newlyAwarded: false };
 }

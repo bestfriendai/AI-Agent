@@ -15,7 +15,7 @@ const SESSIONS = [
         id: '1',
         title: 'Morning Focus',
         description: 'Start your day with clarity and purpose.',
-        duration: '1 min',
+        duration: '3 min',
         icon: 'sunny',
         // Softer Orange/Peach
         accentColor: '#FBBF24', // Yellow 500
