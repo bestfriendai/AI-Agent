@@ -1,310 +1,369 @@
-import { Gradient } from "@/components/gradient";
 import { db } from "@/utils/firebase";
 import { Session } from "@/utils/types";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
-import { BlurMask, Canvas, Circle } from "@shopify/react-native-skia";
-import { BlurView } from "expo-blur";
+import * as Haptics from 'expo-haptics';
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
     Dimensions,
     Modal,
+    RefreshControl,
     ScrollView,
+    StatusBar,
     StyleSheet,
     Switch,
     Text,
     TouchableOpacity,
-    TouchableWithoutFeedback,
     View,
 } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get('window');
 
-// Reusable Light Mode Card
-const LightCard = ({ children, style }: { children: React.ReactNode, style?: any }) => (
-    <View style={[styles.lightCard, style]}>
+
+const COLORS = {
+    bg: '#FFFFFF',
+    card: '#FAFAFA',
+    cardBorder: '#E4E4E7',
+    primary: '#09090B',
+    secondary: '#71717A',
+    accent: '#3B82F6',
+    danger: '#EF4444',
+    success: '#10B981',
+};
+
+
+
+const BentoCard = ({ children, style, delay = 0, colSpan = 1 }: any) => (
+    <Animated.View
+        entering={FadeInUp.delay(delay)}
+        style={[
+            styles.bentoCard,
+            { flex: colSpan },
+            style
+        ]}
+    >
         {children}
+    </Animated.View>
+);
+
+const ActivityBar = ({ height, label, active }: any) => (
+    <View style={styles.activityBarContainer}>
+        <View style={[styles.activityBar, { height, backgroundColor: active ? COLORS.accent : '#E4E4E7' }]} />
+        <Text style={[styles.activityLabel, active && { color: COLORS.primary }]}>{label}</Text>
     </View>
 );
 
+const SettingsModal = ({ visible, onClose, signOut, privacyMode, setPrivacyMode }: any) => {
+    return (
+        <Modal visible={visible} animationType="fade" transparent>
+            <View style={styles.modalOverlay}>
+                <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
+                <Animated.View entering={FadeInUp} style={styles.modalContent}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Preferences</Text>
+                        <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
+                            <Ionicons name="close" size={20} color="#52525b" />
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.settingRow}>
+                        <View style={styles.settingIconBox}>
+                            <Ionicons name="eye-off-outline" size={22} color={COLORS.primary} />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 16 }}>
+                            <Text style={styles.settingLabel}>Incognito Mode</Text>
+                            <Text style={styles.settingSub}>Hide activity from friends</Text>
+                        </View>
+                        <Switch
+                            value={privacyMode}
+                            onValueChange={(v) => {
+                                Haptics.selectionAsync();
+                                setPrivacyMode(v);
+                            }}
+                            trackColor={{ false: '#E4E4E7', true: COLORS.accent }}
+                            thumbColor={"#FFFFFF"}
+                            ios_backgroundColor="#E4E4E7"
+                        />
+                    </View>
+
+                    <View style={{ height: 1, backgroundColor: '#E4E4E7', marginVertical: 24 }} />
+
+                    <TouchableOpacity
+                        style={styles.logoutBtn}
+                        onPress={() => {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                            signOut();
+                        }}
+                    >
+                        <Ionicons name="log-out-outline" size={20} color={COLORS.danger} style={{ marginRight: 8 }} />
+                        <Text style={styles.logoutText}>Log Out</Text>
+                    </TouchableOpacity>
+                </Animated.View>
+            </View>
+        </Modal>
+    );
+};
+
 export default function ProfileScreen() {
+    const router = useRouter();
     const { user } = useUser();
     const { signOut } = useAuth();
-    const router = useRouter();
-    const [sessionHistory, setSessionHistory] = useState<Session[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const insets = useSafeAreaInsets();
+
+
     const [stats, setStats] = useState({
         totalSessions: 0,
-        totalDuration: 0,
-        totalTokens: 0,
+        totalDurationMinutes: 0,
+        averageDurationMinutes: 0,
+        currentStreak: 0,
+        dailyActivity: [0, 0, 0, 0, 0, 0, 0],
     });
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [privacyMode, setPrivacyMode] = useState(false);
+    const [settingsVisible, setSettingsVisible] = useState(false);
 
-    const [focusMode, setFocusMode] = useState(false); // Mock state for UI
 
-    const [alertConfig, setAlertConfig] = useState({
-        visible: false,
-        title: '',
-        message: '',
-        buttons: [] as { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[],
-    });
+    const parseDate = (date: any): Date => {
+        if (!date) return new Date();
+        if (typeof date.toDate === 'function') return date.toDate(); // Firestore Timestamp
+        if (date.seconds) return new Date(date.seconds * 1000); // Raw Timestamp object
+        return new Date(date); // ISO string or Date
+    };
 
-    const showAlert = (title: string, message: string, buttons?: { text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }[]) => {
-        setAlertConfig({
-            visible: true,
-            title,
-            message,
-            buttons: buttons || [{ text: 'OK', style: 'default' }],
+    const processSessions = useCallback((sessions: Session[]) => {
+        const totalSessions = sessions.length;
+        const totalDurationSecs = sessions.reduce((acc, s) => acc + (s.call_duration_secs || 0), 0);
+
+        setStats({
+            totalSessions,
+            totalDurationMinutes: Math.floor(totalDurationSecs / 60),
+            averageDurationMinutes: totalSessions > 0 ? Math.round((totalDurationSecs / 60) / totalSessions) : 0,
+            currentStreak: calculateStreak(sessions),
+            dailyActivity: calculateDailyActivity(sessions),
         });
-    };
-
-    const closeAlert = () => {
-        setAlertConfig(prev => ({ ...prev, visible: false }));
-    };
-
-    useEffect(() => {
-        fetchSessionData();
     }, []);
 
-    const fetchSessionData = async () => {
-        if (!user) {
-            return;
-        }
-        try {
-            setIsLoading(true);
-            const sessionsRef = collection(db, "session");
-            const q = query(sessionsRef, where("user_id", "==", user.id));
-            const querySnapshot = await getDocs(q);
+    useEffect(() => {
+        if (!user) return;
 
+        setIsRefreshing(true);
+        const sessionsRef = collection(db, "session");
+        const q = query(sessionsRef, where("user_id", "==", user.id));
+
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const sessions: Session[] = [];
-            querySnapshot.forEach((doc) => {
-                sessions.push({ id: doc.id, ...doc.data() } as Session);
-            });
+            querySnapshot.forEach((doc) => sessions.push({ id: doc.id, ...doc.data() } as Session));
+            processSessions(sessions);
+            setIsRefreshing(false);
+        }, (error) => {
+            console.error("Error fetching session data:", error);
+            setIsRefreshing(false);
+        });
 
-            setSessionHistory(sessions);
+        return () => unsubscribe();
+    }, [user, processSessions]);
 
-            // Calculate stats
-            const totalDuration = sessions.reduce(
-                (acc, session) => acc + (session.call_duration_secs || 0),
-                0
-            );
-            const totalTokens = sessions.reduce(
-                (acc, session) => acc + (session.tokens || 0),
-                0
-            );
-
-            setStats({
-                totalSessions: sessions.length,
-                totalDuration,
-                totalTokens,
-            });
-        } catch (e) {
-            console.log("Error fetching session data:", e);
-        } finally {
-            setIsLoading(false);
-        }
+    const onRefresh = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setTimeout(() => setIsRefreshing(false), 500);
     };
 
-    const handleSignOut = async () => {
-        try {
-            await signOut();
-        } catch (error) {
-            console.error("Sign out error:", error);
-            showAlert("Error", "Failed to sign out");
+    const calculateStreak = (sessions: Session[]) => {
+        if (!sessions.length) return 0;
+
+        const uniqueDates = Array.from(new Set(sessions.map(s => {
+            const date = parseDate(s.created_at);
+            return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+        }))).sort((a, b) => b - a);
+
+        let streak = 0;
+        const today = new Date();
+        const todayReset = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+
+        const hasToday = uniqueDates.includes(todayReset);
+        const yesterdayReset = todayReset - 86400000;
+        const hasYesterday = uniqueDates.includes(yesterdayReset);
+
+        if (!hasToday && !hasYesterday) return 0;
+
+        let checkTime = hasToday ? todayReset : yesterdayReset;
+
+        while (uniqueDates.includes(checkTime)) {
+            streak++;
+            checkTime -= 86400000;
         }
+
+        return streak;
     };
+
+    // Helper: Calculate Daily Activity (Last 7 days relative to Mon-Sun fixed or just last 7 days?)
+    // UI labels are M T W T F S S. This implies a fixed week (Mon-Sun).
+    // Let's map current week's activity.
+    const calculateDailyActivity = (sessions: Session[]) => {
+        const activity = [0, 0, 0, 0, 0, 0, 0];
+        const today = new Date();
+        const day = today.getDay();
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(today.setDate(diff));
+        monday.setHours(0, 0, 0, 0);
+
+        sessions.forEach(s => {
+            const sessionDate = parseDate(s.created_at);
+            if (sessionDate >= monday) {
+                let dayIndex = sessionDate.getDay() - 1;
+                if (dayIndex === -1) dayIndex = 6;
+
+                const durationMins = (s.call_duration_secs || 0) / 60;
+                activity[dayIndex] += durationMins;
+            }
+        });
+
+        const maxVal = Math.max(...activity, 1);
+        return activity.map(v => (v / maxVal) * 80);
+    };
+
+
+
+
 
     return (
         <View style={styles.container}>
-            {/* Soft Light Gradient Background at Top */}
-            <View style={styles.headerBackground}>
-                <Gradient position="top" isSpeaking={false} />
-                <Canvas style={StyleSheet.absoluteFill}>
-                    <Circle cx={width} cy={0} r={180} color="rgba(59, 130, 246, 0.15)">
-                        <BlurMask blur={80} style="normal" />
-                    </Circle>
-                    <Circle cx={0} cy={100} r={140} color="rgba(147, 197, 253, 0.15)">
-                        <BlurMask blur={60} style="normal" />
-                    </Circle>
-                </Canvas>
+            <StatusBar barStyle="dark-content" />
+
+            {/* Header */}
+            <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+                <TouchableOpacity
+                    style={styles.settingsBtn}
+                    onPress={() => router.back()}
+                >
+                    <Ionicons name="chevron-back" size={20} color={COLORS.primary} />
+                </TouchableOpacity>
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                    <Text style={styles.headerTitle}>Profile</Text>
+                </View>
+                <TouchableOpacity
+                    style={styles.settingsBtn}
+                    onPress={() => setSettingsVisible(true)}
+                >
+                    <Ionicons name="settings-outline" size={20} color={COLORS.primary} />
+                </TouchableOpacity>
             </View>
 
-            <SafeAreaView style={styles.safeArea}>
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                    {isLoading && (
-                        <View style={styles.loadingOverlay}>
-                            <ActivityIndicator size="large" color="#3B82F6" />
-                        </View>
-                    )}
-
-                    {/* Profile Header Center - Refined */}
-                    <Animated.View entering={FadeInDown.springify()} style={styles.headerSection}>
-                        <View style={styles.avatarRing}>
-                            <Image
-                                source={user?.imageUrl}
-                                style={styles.avatar}
-                                contentFit="cover"
-                            />
-                        </View>
-
-                        <View style={styles.userInfoContainer}>
-                            <View style={styles.nameRow}>
-                                <Text style={styles.userName}>{user?.firstName} {user?.lastName}</Text>
-                                <Ionicons name="checkmark-circle" size={24} color="#3B82F6" style={styles.verifiedIcon} />
-                            </View>
-                            <Text style={styles.userHandle}>{user?.primaryEmailAddress?.emailAddress}</Text>
-                        </View>
-
-                        <TouchableOpacity
-                            style={styles.softButton}
-                            onPress={() => showAlert("Coming Soon", "Edit Profile feature will be available in the next update.")}
-                        >
-                            <Text style={styles.softButtonText}>Edit Profile</Text>
-                        </TouchableOpacity>
-                    </Animated.View>
-
-                    {/* Overview Section */}
-                    <Text style={styles.sectionTitle}>Overview</Text>
-                    <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.statsRow}>
-                        <LightCard style={styles.statCard}>
-                            <View style={styles.statIconBadge}>
-                                <Ionicons name="chatbubbles" size={24} color="#3B82F6" />
-                            </View>
-                            <View>
-                                <Text style={styles.statValue}>{stats.totalSessions}</Text>
-                                <Text style={styles.statLabel}>Sessions</Text>
-                            </View>
-                        </LightCard>
-
-                        <LightCard style={styles.statCard}>
-                            <View style={[styles.statIconBadge, { backgroundColor: '#F0FDFA' }]}>
-                                <Ionicons name="time" size={24} color="#0D9488" />
-                            </View>
-                            <View>
-                                <Text style={styles.statValue}>{Math.floor(stats.totalDuration / 60)}m</Text>
-                                <Text style={styles.statLabel}>Mindful Time</Text>
-                            </View>
-                        </LightCard>
-                    </Animated.View>
-
-                    {/* Settings Section */}
-                    <Text style={styles.sectionTitle}>Settings</Text>
-                    <Animated.View entering={FadeInDown.delay(200).springify()}>
-                        <LightCard style={styles.settingsCard}>
-                            {/* Focus Mode */}
-                            <View style={styles.settingRow}>
-                                <View style={styles.rowLeft}>
-                                    <View style={[styles.settingIcon, { backgroundColor: '#ECFDF5' }]}>
-                                        <Ionicons name="moon" size={20} color="#059669" />
-                                    </View>
-                                    <View style={{ marginLeft: 12 }}>
-                                        <Text style={styles.settingLabel}>Focus Mode</Text>
-                                        <Text style={styles.settingSubLabel}>{focusMode ? "On" : "Off"}</Text>
-                                    </View>
-                                </View>
-                                <Switch
-                                    value={focusMode}
-                                    onValueChange={setFocusMode}
-                                    trackColor={{ false: "#E5E7EB", true: "#3B82F6" }}
-                                    thumbColor={"#fff"}
-                                    ios_backgroundColor="#E5E7EB"
-                                />
-                            </View>
-
-                            <View style={styles.settingDivider} />
-
-                            {/* Voice & Audio */}
-                            <TouchableOpacity
-                                style={styles.settingRow}
-                                onPress={() => showAlert("Coming Soon", "Voice Settings will be available shortly.")}
-                            >
-                                <View style={styles.rowLeft}>
-                                    <View style={[styles.settingIcon, { backgroundColor: '#EFF6FF' }]}>
-                                        <Ionicons name="mic" size={20} color="#3B82F6" />
-                                    </View>
-                                    <View style={{ marginLeft: 12 }}>
-                                        <Text style={styles.settingLabel}>Voice & Audio</Text>
-                                        <Text style={styles.settingSubLabel}>Volume: 80%</Text>
-                                    </View>
-                                </View>
-                                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                            </TouchableOpacity>
-
-                        </LightCard>
-                    </Animated.View>
-
-                    {/* Other Actions Card */}
-                    <Animated.View entering={FadeInDown.delay(300).springify()} style={{ marginTop: 16 }}>
-                        <LightCard style={styles.settingsCard}>
-                            {/* Log Out */}
-                            <TouchableOpacity style={styles.settingRow} onPress={handleSignOut}>
-                                <View style={styles.rowLeft}>
-                                    <View style={[styles.settingIcon, { backgroundColor: '#FEF2F2' }]}>
-                                        <Ionicons name="log-out" size={20} color="#EF4444" />
-                                    </View>
-                                    <Text style={[styles.settingLabel, { color: '#EF4444', marginLeft: 12 }]}>Log Out</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                            </TouchableOpacity>
-                        </LightCard>
-                    </Animated.View>
-
-                    <Text style={styles.versionText}>Version 1.0.3</Text>
-                    <View style={{ height: 100 }} />
-                </ScrollView>
-            </SafeAreaView>
-
-            {/* Modal */}
-            <Modal
-                transparent
-                visible={alertConfig.visible}
-                animationType="fade"
-                onRequestClose={closeAlert}
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
             >
-                <View style={styles.modalOverlay}>
-                    <TouchableWithoutFeedback onPress={closeAlert}>
-                        <View style={StyleSheet.absoluteFill} />
-                    </TouchableWithoutFeedback>
-                    <View style={styles.alertContainer}>
-                        <BlurView intensity={80} tint="light" style={styles.alertBlur}>
-                            <View style={styles.alertContent}>
-                                <Text style={styles.alertTitle}>{alertConfig.title}</Text>
-                                <Text style={styles.alertMessage}>{alertConfig.message}</Text>
+
+                <Animated.View entering={FadeInDown.duration(600)} style={styles.identityRow}>
+                    <Image source={user?.imageUrl} style={styles.avatar} contentFit="cover" />
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.userName}>{user?.firstName} {user?.lastName}</Text>
+                        <Text style={styles.userEmail}>{user?.primaryEmailAddress?.emailAddress}</Text>
+                    </View>
+                    <View style={styles.proBadge}>
+                        <Text style={styles.proBadgeText}>PRO</Text>
+                    </View>
+                </Animated.View>
+
+
+                <View style={styles.gridContainer}>
+                    <View style={styles.gridRow}>
+                        <BentoCard colSpan={2} delay={100} style={{ backgroundColor: COLORS.card }}>
+                            <View style={styles.cardHeader}>
+                                <Ionicons name="time" size={16} color={COLORS.secondary} />
+                                <Text style={styles.cardLabel}>TIME FOCUSED</Text>
                             </View>
-                            <View style={[styles.alertButtonsContainer, alertConfig.buttons.length > 2 && styles.alertButtonsVertical]}>
-                                {alertConfig.buttons.map((btn, index) => (
-                                    <TouchableOpacity
-                                        key={index}
-                                        style={[
-                                            styles.alertButton,
-                                            alertConfig.buttons.length === 2 && index === 0 && styles.alertButtonBorderRight,
-                                            alertConfig.buttons.length > 2 && index < alertConfig.buttons.length - 1 && styles.alertButtonBorderBottom,
-                                            index === 0 && styles.alertButtonBorderTop
-                                        ]}
-                                        onPress={() => {
-                                            closeAlert();
-                                            if (btn.onPress) btn.onPress();
-                                        }}
-                                    >
-                                        <Text style={[
-                                            styles.alertButtonText,
-                                            btn.style === 'destructive' && styles.textDestructive,
-                                            btn.style === 'cancel' && styles.textBold,
-                                        ]}>
-                                            {btn.text}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
+                            <View style={styles.timeContent}>
+                                <Text style={styles.timeValue}>{stats.totalDurationMinutes}</Text>
+                                <Text style={styles.timeUnit}>min</Text>
                             </View>
-                        </BlurView>
+                        </BentoCard>
+
+                        <BentoCard colSpan={1} delay={200} style={{ backgroundColor: '#F4F4F5', justifyContent: 'center', alignItems: 'center' }}>
+                            <Ionicons name="flame" size={24} color={COLORS.danger} />
+                            <Text style={[styles.cardValue, { marginTop: 8 }]}>{stats.currentStreak}</Text>
+                            <Text style={styles.cardLabelBottom}>STREAK</Text>
+                        </BentoCard>
+                    </View>
+
+                    <View style={styles.gridRow}>
+                        <BentoCard colSpan={3} delay={300} style={{ height: 160 }}>
+                            <View style={styles.cardHeader}>
+                                <Ionicons name="bar-chart" size={16} color={COLORS.secondary} />
+                                <Text style={styles.cardLabel}>WEEKLY ACTIVITY</Text>
+                            </View>
+                            <View style={styles.chartContainer}>
+                                <ActivityBar height={Math.max(stats.dailyActivity[0], 10)} label="M" active={new Date().getDay() === 1} />
+                                <ActivityBar height={Math.max(stats.dailyActivity[1], 10)} label="T" active={new Date().getDay() === 2} />
+                                <ActivityBar height={Math.max(stats.dailyActivity[2], 10)} label="W" active={new Date().getDay() === 3} />
+                                <ActivityBar height={Math.max(stats.dailyActivity[3], 10)} label="T" active={new Date().getDay() === 4} />
+                                <ActivityBar height={Math.max(stats.dailyActivity[4], 10)} label="F" active={new Date().getDay() === 5} />
+                                <ActivityBar height={Math.max(stats.dailyActivity[5], 10)} label="S" active={new Date().getDay() === 6} />
+                                <ActivityBar height={Math.max(stats.dailyActivity[6], 10)} label="S" active={new Date().getDay() === 0} />
+                            </View>
+                        </BentoCard>
+                    </View>
+
+                    <View style={styles.gridRow}>
+                        <BentoCard colSpan={1} delay={400}>
+                            <Text style={styles.cardValueSmall}>{stats.totalSessions}</Text>
+                            <Text style={styles.cardLabelBottom}>SESSIONS</Text>
+                        </BentoCard>
+                        <BentoCard colSpan={1} delay={500}>
+                            <Text style={styles.cardValueSmall}>{stats.averageDurationMinutes}m</Text>
+                            <Text style={styles.cardLabelBottom}>AVG TIME</Text>
+                        </BentoCard>
+                        <BentoCard colSpan={1} delay={600} style={{ alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.accent }}>
+                            <Ionicons name="share-outline" size={24} color={COLORS.primary} />
+                        </BentoCard>
                     </View>
                 </View>
-            </Modal>
+
+
+                <View style={styles.menuContainer}>
+                    <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={() => router.push('/(protected)/(tabs)/history')}
+                    >
+                        <Text style={styles.menuText}>History & Logs</Text>
+                        <Ionicons name="arrow-forward" size={16} color={COLORS.secondary} />
+                    </TouchableOpacity>
+                    <View style={styles.divider} />
+                    <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)}
+                    >
+                        <Text style={styles.menuText}>Achievements</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={{ fontSize: 12, color: COLORS.secondary }}>Coming Soon</Text>
+                            <Ionicons name="lock-closed-outline" size={14} color={COLORS.secondary} />
+                        </View>
+                    </TouchableOpacity>
+                    <View style={styles.divider} />
+                    <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={() => setSettingsVisible(true)}
+                    >
+                        <Text style={styles.menuText}>Preferences</Text>
+                        <Ionicons name="settings-outline" size={16} color={COLORS.secondary} />
+                    </TouchableOpacity>
+                </View>
+
+            </ScrollView>
+
+            <SettingsModal
+                visible={settingsVisible}
+                onClose={() => setSettingsVisible(false)}
+                signOut={signOut}
+                privacyMode={privacyMode}
+                setPrivacyMode={setPrivacyMode}
+            />
         </View>
     );
 }
@@ -312,249 +371,254 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F9FAFB', // Premium light background
+        backgroundColor: COLORS.bg,
     },
-    headerBackground: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 400, // Gradient affects top portion
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingBottom: 20,
     },
-    safeArea: {
-        flex: 1,
+    headerTitle: {
+        fontSize: 32,
+        fontWeight: '800',
+        color: COLORS.primary,
+    },
+
+    settingsBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: COLORS.card,
+        borderWidth: 1,
+        borderColor: COLORS.cardBorder,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     scrollContent: {
-        paddingTop: 40,
+        paddingBottom: 40,
         paddingHorizontal: 20,
     },
-    loadingOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: 200,
-        justifyContent: 'center',
+
+
+    identityRow: {
+        flexDirection: 'row',
         alignItems: 'center',
-        zIndex: 10
-    },
-    headerSection: {
-        alignItems: 'center',
-        marginBottom: 32,
-        marginTop: 10,
-    },
-    avatarRing: {
-        padding: 4,
-        backgroundColor: '#fff',
-        borderRadius: 64, // (120 + 8)/2
-        marginBottom: 16,
-        shadowColor: "#3B82F6",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
-        elevation: 10,
+        marginBottom: 30,
     },
     avatar: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-    },
-    userInfoContainer: {
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    nameRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 4,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        marginRight: 16,
+        borderWidth: 2,
+        borderColor: COLORS.cardBorder,
     },
     userName: {
-        fontSize: 30, // Larger
+        fontSize: 20,
+        fontWeight: '700',
+        color: COLORS.primary,
+    },
+    userEmail: {
+        fontSize: 14,
+        color: COLORS.secondary,
+    },
+    proBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        backgroundColor: '#FDE047',
+        borderRadius: 4,
+    },
+    proBadgeText: {
+        color: '#000',
         fontWeight: '800',
-        color: '#111827',
-        letterSpacing: -0.5,
+        fontSize: 10,
     },
-    verifiedIcon: {
-        marginTop: 4,
+
+
+    gridContainer: {
+        gap: 12,
+        marginBottom: 30,
     },
-    userHandle: {
-        fontSize: 16,
-        color: '#6B7280',
-        fontWeight: '500',
-    },
-    softButton: {
-        paddingHorizontal: 32,
-        paddingVertical: 12,
-        borderRadius: 100,
-        backgroundColor: '#EFF6FF', // Soft Blue
-        borderWidth: 1,
-        borderColor: '#DBEAFE',
-    },
-    softButtonText: {
-        color: '#2563EB', // Stronger Blue
-        fontSize: 15,
-        fontWeight: '700',
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#111827',
-        marginBottom: 12,
-    },
-    statsRow: {
+    gridRow: {
         flexDirection: 'row',
         gap: 12,
-        marginBottom: 24,
     },
-    lightCard: {
-        backgroundColor: '#fff',
-        borderRadius: 24,
+    bentoCard: {
+        backgroundColor: COLORS.card,
+        borderRadius: 20,
         padding: 16,
         borderWidth: 1,
-        borderColor: '#E5E7EB',
+        borderColor: COLORS.cardBorder,
     },
-    statCard: {
-        flex: 1,
-        aspectRatio: 1, // Make them square-ish
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    statIconBadge: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: '#EFF6FF',
-        justifyContent: 'center',
+    cardHeader: {
+        flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 12,
+        gap: 8,
     },
-    statValue: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: '#111827',
-        textAlign: 'center',
+    cardLabel: {
+        color: COLORS.secondary,
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 0.5,
     },
-    statLabel: {
-        fontSize: 13,
+    timeContent: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+    },
+    timeValue: {
+        color: COLORS.primary,
+        fontSize: 36,
+        fontWeight: '700',
+    },
+    timeUnit: {
+        color: COLORS.secondary,
+        fontSize: 16,
+        marginLeft: 4,
         fontWeight: '600',
-        color: '#6B7280',
-        textAlign: 'center',
     },
-    settingsCard: {
-        padding: 0, // Reset padding for list
-        overflow: 'hidden',
+    cardLabelBottom: {
+        color: COLORS.secondary,
+        fontSize: 10,
+        fontWeight: '700',
+        marginTop: 4,
+    },
+    cardValue: {
+        color: COLORS.primary,
+        fontSize: 24,
+        fontWeight: '700',
+    },
+    cardValueSmall: {
+        color: COLORS.primary,
+        fontSize: 20,
+        fontWeight: '700',
+    },
+
+
+    chartContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
+        height: 90,
+        paddingBottom: 4,
+    },
+    activityBarContainer: {
+        alignItems: 'center',
+        gap: 8,
+    },
+    activityBar: {
+        width: 6,
+        borderRadius: 3,
+        backgroundColor: '#E4E4E7',
+    },
+    activityLabel: {
+        color: COLORS.secondary,
+        fontSize: 10,
+        fontWeight: '600',
+    },
+
+
+    menuContainer: {
+        backgroundColor: COLORS.card,
+        borderRadius: 20,
+        padding: 8,
+        borderWidth: 1,
+        borderColor: COLORS.cardBorder,
+    },
+    menuItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+    },
+    menuText: {
+        color: COLORS.primary,
+        fontSize: 16,
+        fontWeight: '500',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: COLORS.cardBorder,
+        marginHorizontal: 16,
+    },
+
+
+    modalOverlay: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+        backgroundColor: 'rgba(0,0,0,0.5)', // Standard dimming
+    },
+    modalContent: {
+        width: '100%',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        padding: 24,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 8,
+        },
+        shadowOpacity: 0.15,
+        shadowRadius: 24,
+        elevation: 10,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 32,
+    },
+    modalTitle: {
+        color: COLORS.primary,
+        fontSize: 22,
+        fontWeight: '700',
+        letterSpacing: -0.5,
+    },
+    modalCloseBtn: {
+        width: 32,
+        height: 32,
+        backgroundColor: '#F4F4F5',
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     settingRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 16,
     },
-    rowLeft: {
-        flexDirection: 'row',
+    settingIconBox: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: '#F4F4F5',
         alignItems: 'center',
-    },
-    settingIcon: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
         justifyContent: 'center',
-        alignItems: 'center',
     },
     settingLabel: {
+        color: COLORS.primary,
         fontSize: 16,
         fontWeight: '600',
-        color: '#1F2937',
     },
-    settingSubLabel: {
+    settingSub: {
+        color: COLORS.secondary,
         fontSize: 13,
-        color: '#9CA3AF',
         marginTop: 2,
     },
-    settingDivider: {
-        height: 1,
-        backgroundColor: '#F3F4F6',
-        marginLeft: 64, // Indent for standard iOS look
-    },
-    versionText: {
-        textAlign: 'center',
-        marginTop: 24,
-        color: '#D1D5DB',
-        fontSize: 13,
-        fontWeight: '500',
-    },
-    // Modal Styles
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    alertContainer: {
-        width: 280,
-        borderRadius: 14,
-        overflow: 'hidden',
-        backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    },
-    alertBlur: {
-        width: '100%',
-        alignItems: 'center',
-    },
-    alertContent: {
-        paddingTop: 20,
-        paddingHorizontal: 16,
-        paddingBottom: 20,
-        alignItems: 'center',
-    },
-    alertTitle: {
-        fontSize: 17,
-        fontWeight: '600',
-        color: '#000',
-        marginBottom: 4,
-        textAlign: 'center',
-    },
-    alertMessage: {
-        fontSize: 13,
-        color: '#000',
-        textAlign: 'center',
-        lineHeight: 18,
-    },
-    alertButtonsContainer: {
+    logoutBtn: {
         flexDirection: 'row',
-        width: '100%',
-    },
-    alertButtonsVertical: {
-        flexDirection: 'column',
-    },
-    alertButton: {
-        flex: 1,
-        height: 44,
-        justifyContent: 'center',
+        backgroundColor: '#FEF2F2', // Light Red bg
+        paddingVertical: 16,
+        borderRadius: 16,
         alignItems: 'center',
+        justifyContent: 'center',
     },
-    alertButtonBorderTop: {
-        borderTopWidth: 0.5,
-        borderTopColor: 'rgba(60, 60, 67, 0.29)',
-    },
-    alertButtonBorderRight: {
-        borderRightWidth: 0.5,
-        borderRightColor: 'rgba(60, 60, 67, 0.29)',
-    },
-    alertButtonBorderBottom: {
-        borderBottomWidth: 0.5,
-        borderBottomColor: 'rgba(60, 60, 67, 0.29)',
-    },
-    alertButtonText: {
-        fontSize: 17,
-        color: '#007AFF',
-        fontWeight: '400',
-    },
-    textBold: {
-        fontWeight: '600',
-    },
-    textDestructive: {
-        color: '#FF3B30',
-        fontWeight: '600',
+    logoutText: {
+        color: COLORS.danger,
+        fontWeight: '700',
+        fontSize: 16,
     },
 });
