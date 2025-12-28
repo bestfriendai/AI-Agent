@@ -155,7 +155,10 @@ export default function HistoryScreen() {
                     <TouchableOpacity style={styles.moreButton}>
                         <Ionicons name="search" size={20} color="#000" />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.avatarButton}>
+                    <TouchableOpacity
+                        style={styles.avatarButton}
+                        onPress={() => router.push("/profile")}
+                    >
                         {user?.imageUrl ? (
                             <Image source={{ uri: user.imageUrl }} style={styles.avatarImage} />
                         ) : (
@@ -171,14 +174,36 @@ export default function HistoryScreen() {
 
     const renderEmptyState = () => (
         <Animated.View
-            entering={FadeInDown.delay(300).duration(400)}
+            entering={FadeInDown.delay(200).duration(800).springify()}
             style={styles.emptyContainer}
         >
-            <View style={styles.emptyIconCircle}>
-                <Ionicons name="chatbubble-ellipses-outline" size={32} color="#999" />
+            {/* Ghost Cards Visualization */}
+            <View style={styles.ghostStack}>
+                {/* Bottom Ghost (Faintest) */}
+                <View style={[styles.ghostCard, styles.ghostCardBottom]} />
+                {/* Middle Ghost */}
+                <View style={[styles.ghostCard, styles.ghostCardMiddle]} />
+                {/* Top Ghost (Most visible) */}
+                <View style={[styles.ghostCard, styles.ghostCardTop]}>
+                    <View style={styles.ghostRow}>
+                        <View style={styles.ghostAvatar} />
+                        <View style={styles.ghostLines}>
+                            <View style={styles.ghostLineShort} />
+                            <View style={styles.ghostLineLong} />
+                        </View>
+                    </View>
+                </View>
+
+                {/* Floating Icon Overlay */}
+                <View style={styles.ghostIconOverlay}>
+                    <Ionicons name="journal-outline" size={32} color="#6B7280" />
+                </View>
             </View>
-            <Text style={styles.emptyTitle}>No sessions yet</Text>
-            <Text style={styles.emptySubtitle}>Start a new conversation to see it here.</Text>
+
+            <Text style={styles.emptyTitle}>Your History is Empty</Text>
+            <Text style={styles.emptySubtitle}>
+                Conversations will be saved here automatically.{'\n'}Start a new session to begin.
+            </Text>
         </Animated.View>
     );
 
@@ -539,25 +564,92 @@ const styles = StyleSheet.create({
         color: '#4B5563',
     },
 
-    // Empty State
+    // Empty State with Ghost Cards
     emptyContainer: {
         alignItems: "center",
         justifyContent: "center",
-        marginTop: 100,
+        marginTop: 60,
         padding: 20,
     },
-    emptyIconCircle: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        backgroundColor: "#F3F4F6",
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: 16,
+    ghostStack: {
+        width: 200,
+        height: 140,
+        position: 'relative',
+        marginBottom: 24,
+    },
+    ghostCard: {
+        position: 'absolute',
+        width: 180,
+        height: 80,
+        borderRadius: 16,
+        backgroundColor: '#F3F4F6',
+        left: '50%',
+        marginLeft: -90,
+    },
+    ghostCardBottom: {
+        bottom: 0,
+        opacity: 0.3,
+        transform: [{ scale: 0.85 }],
+    },
+    ghostCardMiddle: {
+        bottom: 20,
+        opacity: 0.5,
+        transform: [{ scale: 0.92 }],
+    },
+    ghostCardTop: {
+        bottom: 40,
+        opacity: 0.8,
+        padding: 16,
+        justifyContent: 'center',
+    },
+    ghostRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    ghostAvatar: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#E5E7EB',
+        marginRight: 12,
+    },
+    ghostLines: {
+        flex: 1,
+    },
+    ghostLineShort: {
+        width: 60,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: '#E5E7EB',
+        marginBottom: 8,
+    },
+    ghostLineLong: {
+        width: 100,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: '#E5E7EB',
+    },
+    ghostIconOverlay: {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        marginTop: -20,
+        marginLeft: -20,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#FFFFFF',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
     },
     emptyTitle: {
         fontSize: 20,
-        fontWeight: "700", // Bolder
+        fontWeight: "700",
         color: "#111827",
         marginBottom: 8,
     },

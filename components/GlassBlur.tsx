@@ -14,6 +14,7 @@ export function GlassBlur({ style, children, intensity = 80, ...props }: GlassVi
                 style={StyleSheet.absoluteFill}
                 intensity={intensity}
                 tint="light"
+                pointerEvents="none"
             />
             <LinearGradient
                 colors={[
@@ -24,6 +25,7 @@ export function GlassBlur({ style, children, intensity = 80, ...props }: GlassVi
                 style={StyleSheet.absoluteFill}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 0, y: 1 }}
+                pointerEvents="none"
             />
             {children}
         </View>
