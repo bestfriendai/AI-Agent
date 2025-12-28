@@ -36,7 +36,7 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const isMounted = useRef(true);
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const progress = useSharedValue(0);
     const isInhaling = useSharedValue(true);
     const [instruction, setInstruction] = useState('Breathe in');

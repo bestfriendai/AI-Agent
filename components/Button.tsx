@@ -29,7 +29,7 @@ export default function Button({
     onPress,
     disabled,
     ...props
-}: ButtonProps): JSX.Element {
+}: ButtonProps) {
     const scale = useSharedValue(1);
 
     const animatedStyle = useAnimatedStyle(() => ({

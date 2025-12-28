@@ -1,6 +1,6 @@
 import { Gradient } from "@/components/gradient";
 import { db } from "@/utils/firebase";
-import { logError, parseError } from "@/utils/errors";
+import { logError } from "@/utils/errors";
 import haptics from "@/utils/haptics";
 import { Session } from "@/utils/types";
 import { useAuth, useUser } from "@clerk/clerk-expo";
@@ -9,7 +9,6 @@ import { BlurMask, Canvas, Circle } from "@shopify/react-native-skia";
 import { BlurView } from "expo-blur";
 import Constants from "expo-constants";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { useEffect, useState, useRef } from "react";
 import {
@@ -42,9 +41,7 @@ const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 export default function ProfileScreen() {
     const { user } = useUser();
     const { signOut } = useAuth();
-    const router = useRouter();
     const isMounted = useRef(true);
-    const [sessionHistory, setSessionHistory] = useState<Session[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [stats, setStats] = useState({
         totalSessions: 0,
@@ -102,8 +99,6 @@ export default function ProfileScreen() {
             querySnapshot.forEach((doc) => {
                 sessions.push({ id: doc.id, ...doc.data() } as Session);
             });
-
-            setSessionHistory(sessions);
 
             // Calculate stats
             const totalDuration = sessions.reduce(

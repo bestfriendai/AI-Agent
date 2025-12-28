@@ -1,7 +1,6 @@
 import { GlassBlur } from "@/components/GlassBlur";
 import { EmptyState } from "@/components/EmptyState";
 import { PullToRefreshSectionList } from "@/components/PullToRefreshSectionList";
-import { sessionThemes } from "@/utils/colors";
 import { db } from "@/utils/firebase";
 import { logError, parseError } from "@/utils/errors";
 import haptics from "@/utils/haptics";
@@ -10,7 +9,7 @@ import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
     ActivityIndicator,
     Image,
@@ -31,15 +30,6 @@ type HistorySection = {
     data: Session[];
 };
 
-const getSessionTheme = (id: string) => {
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) {
-        hash = id.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const index = Math.abs(hash) % sessionThemes.length;
-    return sessionThemes[index];
-};
-
 export default function HistoryScreen() {
     const insets = useSafeAreaInsets();
     const { user } = useUser();
@@ -58,11 +48,7 @@ export default function HistoryScreen() {
         };
     }, []);
 
-    useEffect(() => {
-        fetchSessions();
-    }, [user]);
-
-    const fetchSessions = async () => {
+    const fetchSessions = useCallback(async () => {
         if (!user) return;
         try {
             if (sections.length === 0) setLoading(true);
@@ -78,12 +64,12 @@ export default function HistoryScreen() {
 
             if (!isMounted.current) return;
 
-            const sessions: Session[] = [];
+            const fetchedSessions: Session[] = [];
             querySnapshot.forEach((doc) => {
-                sessions.push({ id: doc.id, ...doc.data() } as Session);
+                fetchedSessions.push({ id: doc.id, ...doc.data() } as Session);
             });
 
-            const grouped = groupSessions(sessions);
+            const grouped = groupSessions(fetchedSessions);
             setSections(grouped);
         } catch (e) {
             logError("HistoryScreen:fetchSessions", e);
@@ -97,7 +83,11 @@ export default function HistoryScreen() {
                 setLoading(false);
             }
         }
-    };
+    }, [user, sections.length]);
+
+    useEffect(() => {
+        fetchSessions();
+    }, [fetchSessions]);
 
     const handleRefresh = async () => {
         await fetchSessions();

@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { View, StyleSheet, ViewStyle, StyleProp, DimensionValue } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -30,7 +30,7 @@ export function Skeleton({
   height = 20,
   borderRadius = 8,
   style,
-}: SkeletonProps): JSX.Element {
+}: SkeletonProps) {
   const shimmer = useSharedValue(0);
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export function Skeleton({
     <Animated.View
       style={[
         styles.skeleton,
-        { width, height, borderRadius },
+        { width: width as DimensionValue, height, borderRadius },
         animatedStyle,
         style,
       ]}
@@ -75,7 +75,7 @@ export function TextSkeleton({
   lines?: number;
   lastLineWidth?: number | string;
   spacing?: number;
-}): JSX.Element {
+}) {
   return (
     <View style={{ gap: spacing }}>
       {Array.from({ length: lines }).map((_, index) => (
@@ -93,7 +93,7 @@ export function TextSkeleton({
 /**
  * Skeleton for session cards on home screen
  */
-export function SessionCardSkeleton(): JSX.Element {
+export function SessionCardSkeleton() {
   return (
     <View style={styles.sessionCard}>
       <View style={styles.sessionCardHeader}>
@@ -114,7 +114,7 @@ export function SessionCardSkeleton(): JSX.Element {
 /**
  * Skeleton for horizontal session carousel
  */
-export function HorizontalSessionSkeleton(): JSX.Element {
+export function HorizontalSessionSkeleton() {
   return (
     <View style={styles.horizontalContainer}>
       {[1, 2, 3].map((i) => (
@@ -133,7 +133,7 @@ export function HorizontalSessionSkeleton(): JSX.Element {
 /**
  * Skeleton for history cards
  */
-export function HistoryCardSkeleton(): JSX.Element {
+export function HistoryCardSkeleton() {
   return (
     <View style={styles.historyCard}>
       <View style={styles.historyCardLeft}>
@@ -152,7 +152,7 @@ export function HistoryCardSkeleton(): JSX.Element {
 /**
  * Skeleton for library session cards
  */
-export function LibraryCardSkeleton(): JSX.Element {
+export function LibraryCardSkeleton() {
   return (
     <View style={styles.libraryCard}>
       <View style={styles.libraryCardContent}>
@@ -168,7 +168,7 @@ export function LibraryCardSkeleton(): JSX.Element {
 /**
  * Skeleton for profile stats
  */
-export function ProfileStatsSkeleton(): JSX.Element {
+export function ProfileStatsSkeleton() {
   return (
     <View style={styles.profileStats}>
       <View style={styles.profileStatCard}>
@@ -188,7 +188,7 @@ export function ProfileStatsSkeleton(): JSX.Element {
 /**
  * Full screen loading skeleton
  */
-export function FullScreenSkeleton(): JSX.Element {
+export function FullScreenSkeleton() {
   return (
     <View style={styles.fullScreen}>
       <Skeleton width={120} height={120} borderRadius={60} />

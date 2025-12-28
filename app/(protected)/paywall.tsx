@@ -45,7 +45,7 @@ const PREMIUM_FEATURES = [
     },
 ];
 
-export default function PaywallScreen(): JSX.Element {
+export default function PaywallScreen() {
     const router = useRouter();
     const {
         isLoading,
@@ -96,7 +96,7 @@ export default function PaywallScreen(): JSX.Element {
                         <View style={styles.successIcon}>
                             <Ionicons name="checkmark-circle" size={80} color={colors.success} />
                         </View>
-                        <Text style={styles.successTitle}>You're Premium!</Text>
+                        <Text style={styles.successTitle}>You&apos;re Premium!</Text>
                         <Text style={styles.successSubtitle}>
                             Enjoy unlimited access to all features
                         </Text>

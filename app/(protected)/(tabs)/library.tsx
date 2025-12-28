@@ -5,11 +5,9 @@ import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import React, { useState, useCallback } from 'react';
-import { Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const { width } = Dimensions.get('window');
 
 // Enhanced data with slightly softer, more sophisticated colors
 const SESSIONS = [

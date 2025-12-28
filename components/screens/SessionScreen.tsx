@@ -46,14 +46,14 @@ interface SessionError {
     canRetry: boolean;
 }
 
-export default function SessionScreen(): JSX.Element | null {
+export default function SessionScreen() {
     const { user, isLoaded } = useUser();
     const { sessionId } = useLocalSearchParams();
     const router = useRouter();
 
     // Refs for cleanup
     const isMounted = useRef(true);
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // State
     const [currentSession, setCurrentSession] = useState(

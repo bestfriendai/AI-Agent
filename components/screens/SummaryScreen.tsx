@@ -22,7 +22,7 @@ import { GlassBlur } from "../GlassBlur";
 import { Gradient } from "../gradient";
 
 // Optimized message component
-const MessageBubble = React.memo(({ item }: { item: TranscriptEntry }) => {
+function MessageBubbleInner({ item }: { item: TranscriptEntry }) {
     const isUser = item.role === "user";
     return (
         <View style={[styles.messageRow, isUser ? styles.userRow : styles.aiRow]}>
@@ -38,7 +38,8 @@ const MessageBubble = React.memo(({ item }: { item: TranscriptEntry }) => {
             </View>
         </View>
     );
-});
+}
+const MessageBubble = React.memo(MessageBubbleInner);
 
 export default function SummaryScreen() {
     const { conversationId, sessionId } = useLocalSearchParams();

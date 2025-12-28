@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { colors } from '@/utils/colors';
@@ -79,7 +79,7 @@ export function EmptyState({
   icon,
   actionLabel,
   onAction,
-}: EmptyStateProps): JSX.Element {
+}: EmptyStateProps) {
   const config = EMPTY_STATE_CONFIG[type];
 
   const displayIcon = icon || config.icon;

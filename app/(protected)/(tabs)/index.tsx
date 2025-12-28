@@ -4,7 +4,7 @@
  */
 
 import ParallaxScrollView, { blurhash } from "@/components/ParallaxScrollView";
-import { SessionCardSkeleton, HorizontalSessionSkeleton } from "@/components/Skeleton";
+import { SessionCardSkeleton } from "@/components/Skeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { colors } from "@/utils/colors";
 import { db } from "@/utils/firebase";
@@ -45,7 +45,7 @@ interface FetchState {
     error: string | null;
 }
 
-export default function Index(): JSX.Element {
+export default function Index() {
     const router = useRouter();
     const { user } = useUser();
     const isMounted = useRef(true);
@@ -145,7 +145,6 @@ export default function Index(): JSX.Element {
                         onPress={() => handleSessionPress(session.id)}
                     />
                 )}
-                estimatedItemSize={266}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.carouselContainer}
@@ -236,7 +235,7 @@ interface SessionCarouselItemProps {
     onPress: () => void;
 }
 
-function SessionCarouselItem({ session, onPress }: SessionCarouselItemProps): JSX.Element {
+function SessionCarouselItem({ session, onPress }: SessionCarouselItemProps) {
     const scale = useSharedValue(1);
 
     const animatedStyle = useAnimatedStyle(() => ({
@@ -285,7 +284,7 @@ interface SessionCardProps {
     onPress: () => void;
 }
 
-function SessionCard({ session, onPress }: SessionCardProps): JSX.Element {
+function SessionCard({ session, onPress }: SessionCardProps) {
     const scale = useSharedValue(1);
     const emoji = getEmojiForId(session.id);
 

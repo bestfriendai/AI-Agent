@@ -17,7 +17,7 @@ import { colors } from "@/utils/colors";
  * Loading Screen Component
  * Displayed while Clerk is loading auth state
  */
-function LoadingScreen(): JSX.Element {
+function LoadingScreen() {
     return (
         <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -29,7 +29,7 @@ function LoadingScreen(): JSX.Element {
  * Auth-aware Layout Component
  * Handles routing based on authentication state
  */
-function RootLayoutWithAuth(): JSX.Element | null {
+function RootLayoutWithAuth() {
     const { isSignedIn, isLoaded } = useAuth();
     const segments = useSegments();
     const router = useRouter();
@@ -85,7 +85,7 @@ function RootLayoutWithAuth(): JSX.Element | null {
  * Root Layout Component
  * Provides global context providers and error handling
  */
-export default function RootLayout(): JSX.Element {
+export default function RootLayout() {
     const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
     // Validate Clerk key

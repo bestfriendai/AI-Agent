@@ -61,7 +61,7 @@ export function AnimatedButton({
   onPressOut,
   onPress,
   ...props
-}: AnimatedButtonProps): JSX.Element {
+}: AnimatedButtonProps) {
   const scale = useSharedValue(1);
   const isDisabled = disabled || loading;
 

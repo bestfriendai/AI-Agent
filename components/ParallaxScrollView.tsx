@@ -57,7 +57,7 @@ export default function ParallaxScrollView({ children, headerRight }: ParallaxSc
                 ref={scrollRef}
                 scrollEventThrottle={16}
             >
-                <Animated.View>
+                <Animated.View style={headerAnimatedStyle}>
                     <Image
                         source={todaySession.image}
                         placeholder={blurhash}
