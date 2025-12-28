@@ -1,4 +1,7 @@
+import { addBreathingExerciseAchievement } from '@/utils/achievements';
 import { colors } from '@/utils/colors';
+import { saveStreakEntry } from '@/utils/streak';
+import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer } from 'expo-audio';
 import { BlurView } from 'expo-blur';
@@ -33,6 +36,7 @@ interface BreathingExerciseProps {
 
 export default function BreathingExercise({ session }: BreathingExerciseProps) {
     const router = useRouter();
+    const { user } = useUser();
     const insets = useSafeAreaInsets();
     const progress = useSharedValue(0);
     const isInhaling = useSharedValue(true);
@@ -71,9 +75,37 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
         }
     }, [isAudioEnabled, player]);
 
-    // Toggle Handler
     const toggleAudio = () => {
         setIsAudioEnabled((prev) => !prev);
+    };
+
+    const handleSessionComplete = async () => {
+        if (!user?.id) {
+            console.error('No user ID available');
+            return;
+        }
+
+        try {
+            const actualDurationSeconds = initialSeconds;
+
+            await saveStreakEntry({
+                userId: user.id,
+                sessionType: 'breathing',
+                sessionTitle: session?.title || 'Breathing Exercise',
+                sessionDetails: {
+                    duration_minutes: parseInt(session?.duration || '3'),
+                    accent_color: session?.accentColor,
+                    audio_enabled: isAudioEnabled,
+                },
+                totalDurationSeconds: actualDurationSeconds,
+            });
+
+            await addBreathingExerciseAchievement(user.id);
+
+            console.log('✅ Session data saved and achievement checked');
+        } catch (error) {
+            console.error('Error saving session data:', error);
+        }
     };
 
     useEffect(() => {
@@ -81,7 +113,9 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
             setRemainingSeconds((prev) => {
                 if (prev <= 1) {
                     clearInterval(timer);
-                    router.back();
+                    handleSessionComplete().then(() => {
+                        router.back();
+                    });
                     return 0;
                 }
                 return prev - 1;
@@ -91,8 +125,8 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
         const duration = 4000;
         progress.value = withRepeat(
             withTiming(1, { duration, easing: Easing.inOut(Easing.quad) }),
-            -1, // infinite
-            true // reverse
+            -1,
+            true
         );
 
         return () => clearInterval(timer);
