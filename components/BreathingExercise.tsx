@@ -1,9 +1,10 @@
 import { colors } from '@/utils/colors';
+import haptics from '@/utils/haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer } from 'expo-audio';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Dimensions, Text as RNText, StyleSheet, TouchableOpacity, View } from 'react-native';
 import Animated, {
     Easing,
@@ -34,6 +35,8 @@ interface BreathingExerciseProps {
 export default function BreathingExercise({ session }: BreathingExerciseProps) {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const isMounted = useRef(true);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const progress = useSharedValue(0);
     const isInhaling = useSharedValue(true);
     const [instruction, setInstruction] = useState('Breathe in');
@@ -49,6 +52,22 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
     const [isAudioEnabled, setIsAudioEnabled] = useState(session?.playAudio === 'true');
     // Audio State handled by expo-audio hook
     const player = useAudioPlayer(session?.audioUri || null);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+            // Cleanup timer
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+            }
+            // Cleanup audio player
+            if (player) {
+                player.pause();
+            }
+        };
+    }, [player]);
 
     useEffect(() => {
         if (player) {
@@ -72,15 +91,30 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
     }, [isAudioEnabled, player]);
 
     // Toggle Handler
-    const toggleAudio = () => {
+    const toggleAudio = useCallback(() => {
+        haptics.light();
         setIsAudioEnabled((prev) => !prev);
-    };
+    }, []);
+
+    // Handle back navigation
+    const handleBack = useCallback(() => {
+        haptics.light();
+        if (player) {
+            player.pause();
+        }
+        router.back();
+    }, [player, router]);
 
     useEffect(() => {
-        const timer = setInterval(() => {
+        timerRef.current = setInterval(() => {
+            if (!isMounted.current) return;
+
             setRemainingSeconds((prev) => {
                 if (prev <= 1) {
-                    clearInterval(timer);
+                    if (timerRef.current) {
+                        clearInterval(timerRef.current);
+                    }
+                    haptics.success();
                     router.back();
                     return 0;
                 }
@@ -95,7 +129,11 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
             true // reverse
         );
 
-        return () => clearInterval(timer);
+        return () => {
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+            }
+        };
     }, []);
 
     const formatTime = (seconds: number) => {
@@ -144,8 +182,10 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
         <View style={styles.container}>
             <TouchableOpacity
                 style={[styles.backButton, { top: insets.top + 10 }]}
-                onPress={() => router.back()}
+                onPress={handleBack}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
             >
                 <BlurView intensity={100} tint="extraLight" style={styles.blurContent}>
                     <Ionicons name="chevron-back" size={24} color="#1a1a1a" />
@@ -158,6 +198,9 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
                     style={[styles.audioButton, { top: insets.top + 10 }]}
                     onPress={toggleAudio}
                     activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={isAudioEnabled ? "Mute audio" : "Unmute audio"}
+                    accessibilityState={{ checked: isAudioEnabled }}
                 >
                     <BlurView intensity={100} tint="extraLight" style={styles.blurContent}>
                         <Ionicons

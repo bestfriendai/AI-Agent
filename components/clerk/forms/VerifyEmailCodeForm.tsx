@@ -192,7 +192,7 @@ function VerifyEmailCodeForm({
         disabled={!canResend}
       >
         <Text style={[styles.switchModeText, !canResend && styles.disabledText]}>
-          Didn't receive a code? {canResend ? "Resend" : `Resend (${resendTimer})`}
+          Didn&apos;t receive a code? {canResend ? "Resend" : `Resend (${resendTimer})`}
         </Text>
       </TouchableOpacity>
 

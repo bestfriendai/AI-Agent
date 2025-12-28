@@ -1,13 +1,13 @@
+import haptics from '@/utils/haptics';
 import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import React, { useState, useCallback } from 'react';
+import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const { width } = Dimensions.get('window');
 
 // Enhanced data with slightly softer, more sophisticated colors
 const SESSIONS = [
@@ -70,13 +70,15 @@ export default function LibraryScreen() {
     const [selectedSession, setSelectedSession] = useState<typeof SESSIONS[0] | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
 
-    const handleSessionPress = (session: typeof SESSIONS[0]) => {
+    const handleSessionPress = useCallback((session: typeof SESSIONS[0]) => {
+        haptics.light();
         setSelectedSession(session);
         setModalVisible(true);
-    };
+    }, []);
 
-    const startSession = (withAudio: boolean) => {
+    const startSession = useCallback((withAudio: boolean) => {
         if (!selectedSession) return;
+        haptics.medium();
         setModalVisible(false);
         router.push({
             pathname: '/meditate',
@@ -85,11 +87,53 @@ export default function LibraryScreen() {
                 playAudio: withAudio ? 'true' : 'false' // Pass as string param
             },
         });
-    };
+    }, [selectedSession, router]);
 
-    const handleRemindPress = () => {
-        // console.log('Remind me pressed'); // Placeholder for reminder logic
-    };
+    const handleRemindPress = useCallback(async () => {
+        haptics.light();
+
+        // Request notification permissions
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+
+        if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+        }
+
+        if (finalStatus !== 'granted') {
+            Alert.alert(
+                'Notifications Disabled',
+                'Enable notifications in Settings to receive reminders.',
+                [{ text: 'OK' }]
+            );
+            return;
+        }
+
+        // Schedule notification for 11:00 AM tomorrow
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(11, 0, 0, 0);
+
+        await Notifications.scheduleNotificationAsync({
+            content: {
+                title: 'Group Meditation Starting',
+                body: 'Join the community for a guided meditation session.',
+                sound: true,
+            },
+            trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.DATE,
+                date: tomorrow,
+            },
+        });
+
+        haptics.success();
+        Alert.alert(
+            'Reminder Set',
+            "We'll notify you before the group meditation starts.",
+            [{ text: 'OK' }]
+        );
+    }, []);
 
     return (
         <View style={styles.container}>

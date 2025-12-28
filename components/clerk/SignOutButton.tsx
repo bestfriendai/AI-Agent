@@ -1,3 +1,4 @@
+import { logError } from "@/utils/errors";
 import { useAuth } from "@clerk/clerk-expo";
 import { Button } from "./components/Button";
 
@@ -14,8 +15,8 @@ export function SignOutButton({ redirectUrl = "/" }: Props) {
         // @ts-ignore - redirectUrl is supported but not in the type definitions
         redirectUrl
       });
-    } catch (error) {
-      console.error("Sign out error:", error);
+    } catch (e) {
+      logError("SignOutButton:signOut", e);
     }
   }
 

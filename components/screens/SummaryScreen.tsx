@@ -1,12 +1,14 @@
 import { colors } from "@/utils/colors";
 import { db } from "@/utils/firebase";
+import { logError, parseError } from "@/utils/errors";
+import haptics from "@/utils/haptics";
 import { ConversationResponse, TranscriptEntry } from "@/utils/types";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { addDoc, collection, doc, getDoc } from "firebase/firestore";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Pressable,
@@ -20,7 +22,7 @@ import { GlassBlur } from "../GlassBlur";
 import { Gradient } from "../gradient";
 
 // Optimized message component
-const MessageBubble = React.memo(({ item }: { item: TranscriptEntry }) => {
+function MessageBubbleInner({ item }: { item: TranscriptEntry }) {
     const isUser = item.role === "user";
     return (
         <View style={[styles.messageRow, isUser ? styles.userRow : styles.aiRow]}>
@@ -36,18 +38,29 @@ const MessageBubble = React.memo(({ item }: { item: TranscriptEntry }) => {
             </View>
         </View>
     );
-});
+}
+const MessageBubble = React.memo(MessageBubbleInner);
 
 export default function SummaryScreen() {
     const { conversationId, sessionId } = useLocalSearchParams();
     const router = useRouter();
     const { user } = useUser();
+    const isMounted = useRef(true);
     const [conversation, setConversation] = useState<ConversationResponse>();
     const [isSaving, setIsSaving] = useState(false);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     // If we have a sessionId, we are viewing history (saved data)
     const isHistoryView = !!sessionId;
+
+    // Cleanup on unmount
+    useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
 
     useEffect(() => {
         if (sessionId) {
@@ -57,13 +70,12 @@ export default function SummaryScreen() {
         }
     }, [sessionId, conversationId]);
 
-    // Auto-refresh every 5 seconds ONLY when conversation is active/processing and NOT in history view
+    // Auto-refresh every 10 seconds ONLY when conversation is active/processing and NOT in history view
     useEffect(() => {
         if (conversation?.status && conversation.status !== "done" && !isHistoryView) {
             const intervalId = setInterval(() => {
-                console.log("Auto-refreshing conversation status...");
                 getSummary();
-            }, 5000); // 5 seconds
+            }, 10000); // 10 seconds - less aggressive than 5s
 
             return () => clearInterval(intervalId);
         }
@@ -72,8 +84,11 @@ export default function SummaryScreen() {
     async function fetchHistorySession(id: string) {
         try {
             setIsLoadingHistory(true);
+            setError(null);
             const docRef = doc(db, "session", id);
             const docSnap = await getDoc(docRef);
+
+            if (!isMounted.current) return;
 
             if (docSnap.exists()) {
                 const data = docSnap.data();
@@ -83,8 +98,8 @@ export default function SummaryScreen() {
                 if (data.transcript_json) {
                     try {
                         recoveredTranscript = JSON.parse(data.transcript_json);
-                    } catch (e) {
-                        console.log("Failed to parse transcript json", e);
+                    } catch {
+                        // Fallback to simple transcript
                     }
                 }
 
@@ -118,37 +133,55 @@ export default function SummaryScreen() {
                         data_collection_results: {},
                     }
                 });
+            } else {
+                setError("Session not found");
             }
-        } catch (error) {
-            console.error("Error fetching history session:", error);
+        } catch (e) {
+            logError("SummaryScreen:fetchHistorySession", e);
+            const parsed = parseError(e);
+            if (isMounted.current) {
+                setError(parsed.message);
+                haptics.error();
+            }
         } finally {
-            setIsLoadingHistory(false);
+            if (isMounted.current) {
+                setIsLoadingHistory(false);
+            }
         }
     }
 
     async function getSummary() {
         if (!conversationId) return;
         try {
+            setError(null);
             const response = await fetch(
                 `${process.env.EXPO_PUBLIC_BASE_URL}/api/conversations?conversationId=${conversationId}`
             );
 
+            if (!isMounted.current) return;
+
             if (!response.ok) {
-                const text = await response.text();
-                console.error("Failed to fetch summary:", text);
+                setError("Failed to load conversation summary");
                 return;
             }
 
             const data: { conversation: ConversationResponse } = await response.json();
-            setConversation(data.conversation);
-        } catch (error) {
-            console.error("Error fetching summary:", error);
+            if (isMounted.current) {
+                setConversation(data.conversation);
+            }
+        } catch (e) {
+            logError("SummaryScreen:getSummary", e);
+            const parsed = parseError(e);
+            if (isMounted.current) {
+                setError(parsed.message);
+            }
         }
     }
 
     async function saveAndContinue() {
         try {
             setIsSaving(true);
+            setError(null);
             await addDoc(collection(db, "session"), {
                 user_id: user?.id,
                 status: conversation?.status,
@@ -163,9 +196,13 @@ export default function SummaryScreen() {
                 created_at: new Date().toISOString(),
             });
 
+            haptics.success();
             router.dismissAll();
-        } catch (error) {
-            console.error("Error saving summary:", error);
+        } catch (e) {
+            logError("SummaryScreen:saveAndContinue", e);
+            const parsed = parseError(e);
+            setError(parsed.message);
+            haptics.error();
         } finally {
             setIsSaving(false);
         }
@@ -207,6 +244,46 @@ export default function SummaryScreen() {
         [conversation?.transcript]
     );
 
+    if (error) {
+        return (
+            <View style={styles.container}>
+                <Gradient position="top" isSpeaking={false} />
+                <SafeAreaView style={styles.safeArea}>
+                    <View style={styles.header}>
+                        <Pressable onPress={() => router.back()} style={styles.backButtonWrapper}>
+                            <GlassBlur style={styles.backButton} intensity={40}>
+                                <Ionicons name="chevron-back" size={24} color="#1a1a1a" />
+                            </GlassBlur>
+                        </Pressable>
+                    </View>
+                    <View style={styles.loadingWrapper}>
+                        <View style={styles.loadingContent}>
+                            <View style={styles.errorIcon}>
+                                <Ionicons name="warning-outline" size={32} color={colors.error} />
+                            </View>
+                            <Text style={styles.loadingTitle}>Something went wrong</Text>
+                            <Text style={styles.loadingSubtitle}>{error}</Text>
+                            <Pressable
+                                onPress={() => {
+                                    haptics.light();
+                                    setError(null);
+                                    if (isHistoryView) {
+                                        fetchHistorySession(sessionId as string);
+                                    } else {
+                                        getSummary();
+                                    }
+                                }}
+                                style={styles.retryButton}
+                            >
+                                <Text style={styles.retryText}>Try Again</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </SafeAreaView>
+            </View>
+        );
+    }
+
     if (isLoadingHistory || (conversation?.status !== "done")) {
         return (
             <View style={styles.container}>
@@ -231,7 +308,13 @@ export default function SummaryScreen() {
                                 {isLoadingHistory ? "Retrieving session data..." : (conversation?.status || "Initializing") + "..."}
                             </Text>
                             {!isLoadingHistory && (
-                                <Pressable onPress={getSummary} style={styles.retryButton}>
+                                <Pressable
+                                    onPress={() => {
+                                        haptics.light();
+                                        getSummary();
+                                    }}
+                                    style={styles.retryButton}
+                                >
                                     <Text style={styles.retryText}>Refresh</Text>
                                 </Pressable>
                             )}
@@ -404,6 +487,14 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: "600",
         color: "#007AFF",
+    },
+    errorIcon: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: "#FEF2F2",
+        justifyContent: "center",
+        alignItems: "center",
     },
 
     // Header Centered

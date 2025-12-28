@@ -1,14 +1,16 @@
 import { Gradient } from "@/components/gradient";
 import { db } from "@/utils/firebase";
+import { logError } from "@/utils/errors";
+import haptics from "@/utils/haptics";
 import { Session } from "@/utils/types";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurMask, Canvas, Circle } from "@shopify/react-native-skia";
 import { BlurView } from "expo-blur";
+import Constants from "expo-constants";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
     ActivityIndicator,
     Dimensions,
@@ -33,11 +35,13 @@ const LightCard = ({ children, style }: { children: React.ReactNode, style?: any
     </View>
 );
 
+// Get app version from Constants
+const appVersion = Constants.expoConfig?.version ?? '1.0.0';
+
 export default function ProfileScreen() {
     const { user } = useUser();
     const { signOut } = useAuth();
-    const router = useRouter();
-    const [sessionHistory, setSessionHistory] = useState<Session[]>([]);
+    const isMounted = useRef(true);
     const [isLoading, setIsLoading] = useState(true);
     const [stats, setStats] = useState({
         totalSessions: 0,
@@ -45,7 +49,15 @@ export default function ProfileScreen() {
         totalTokens: 0,
     });
 
-    const [focusMode, setFocusMode] = useState(false); // Mock state for UI
+    const [focusMode, setFocusMode] = useState(false);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
 
     const [alertConfig, setAlertConfig] = useState({
         visible: false,
@@ -81,12 +93,12 @@ export default function ProfileScreen() {
             const q = query(sessionsRef, where("user_id", "==", user.id));
             const querySnapshot = await getDocs(q);
 
+            if (!isMounted.current) return;
+
             const sessions: Session[] = [];
             querySnapshot.forEach((doc) => {
                 sessions.push({ id: doc.id, ...doc.data() } as Session);
             });
-
-            setSessionHistory(sessions);
 
             // Calculate stats
             const totalDuration = sessions.reduce(
@@ -104,19 +116,29 @@ export default function ProfileScreen() {
                 totalTokens,
             });
         } catch (e) {
-            console.log("Error fetching session data:", e);
+            logError("ProfileScreen:fetchSessionData", e);
         } finally {
-            setIsLoading(false);
+            if (isMounted.current) {
+                setIsLoading(false);
+            }
         }
     };
 
     const handleSignOut = async () => {
+        haptics.light();
         try {
             await signOut();
-        } catch (error) {
-            console.error("Sign out error:", error);
-            showAlert("Error", "Failed to sign out");
+        } catch (e) {
+            logError("ProfileScreen:handleSignOut", e);
+            haptics.error();
+            showAlert("Error", "Failed to sign out. Please try again.");
         }
+    };
+
+    const handleFocusModeToggle = (value: boolean) => {
+        haptics.light();
+        setFocusMode(value);
+        // In a real app, this would persist the setting
     };
 
     return (
@@ -209,7 +231,7 @@ export default function ProfileScreen() {
                                 </View>
                                 <Switch
                                     value={focusMode}
-                                    onValueChange={setFocusMode}
+                                    onValueChange={handleFocusModeToggle}
                                     trackColor={{ false: "#E5E7EB", true: "#3B82F6" }}
                                     thumbColor={"#fff"}
                                     ios_backgroundColor="#E5E7EB"
@@ -254,7 +276,7 @@ export default function ProfileScreen() {
                         </LightCard>
                     </Animated.View>
 
-                    <Text style={styles.versionText}>Version 1.0.3</Text>
+                    <Text style={styles.versionText}>Version {appVersion}</Text>
                     <View style={{ height: 100 }} />
                 </ScrollView>
             </SafeAreaView>
