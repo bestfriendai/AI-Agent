@@ -199,7 +199,57 @@ export default function HistoryScreen() {
         </View>
     );
 
+    // Avatar randomization arrays
+    const avatarIcons = [
+        'chatbubbles', 'mic', 'musical-notes', 'sparkles', 'flame', 'headset',
+        'rocket', 'heart', 'star', 'bulb', 'videocam', 'people',
+        'chatbox', 'radio', 'megaphone', 'happy', 'café', 'git-branch'
+    ];
+
+    const avatarColors = [
+        { bg: '#E9D5FF', icon: '#9333EA' }, // Purple
+        { bg: '#D1FAE5', icon: '#10B981' }, // Green
+        { bg: '#FED7AA', icon: '#F59E0B' }, // Orange
+        { bg: '#FCE7F3', icon: '#EC4899' }, // Rose
+        { bg: '#DBEAFE', icon: '#3B82F6' }, // Blue
+        { bg: '#CCFBF1', icon: '#14B8A6' }, // Teal
+        { bg: '#FEEBC8', icon: '#F59E0B' }, // Amber
+        { bg: '#E0E7FF', icon: '#6366F1' }, // Indigo
+        { bg: '#FCE7F3', icon: '#EC4899' }, // Pink
+    ];
+
+    // Generate consistent random values from session ID
+    const getRandomForSession = (sessionId: string, index: number) => {
+        let hash = 0;
+        const seed = sessionId + index.toString();
+        for (let i = 0; i < seed.length; i++) {
+            hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+            hash = hash & hash;
+        }
+        return Math.abs(hash);
+    };
+
     const HistoryCard = ({ item, index }: { item: Session, index: number }) => {
+        // Generate 6 unique random avatars for this card
+        const avatars = Array.from({ length: 6 }, (_, i) => {
+            const iconIndex = getRandomForSession(item.id, i) % avatarIcons.length;
+            const colorIndex = getRandomForSession(item.id, i + 100) % avatarColors.length;
+            return {
+                icon: avatarIcons[iconIndex],
+                color: avatarColors[colorIndex],
+            };
+        });
+
+        // Bubble cluster layout with varied sizes and overlapping
+        const bubbleConfig = [
+            { size: 40, iconSize: 18, top: 5, left: 8, zIndex: 2 },      // Medium
+            { size: 48, iconSize: 20, top: 0, right: 0, zIndex: 4 },     // Large (prominent)
+            { size: 36, iconSize: 16, top: 30, left: 0, zIndex: 1 },     // Small
+            { size: 42, iconSize: 18, top: 26, left: 24, zIndex: 3 },    // Medium-large
+            { size: 38, iconSize: 17, bottom: 0, right: 10, zIndex: 2 }, // Medium-small
+            { size: 34, iconSize: 15, top: 18, right: 16, zIndex: 1 },   // Small
+        ];
+
         return (
             <Animated.View entering={FadeInDown.delay(index * 100).duration(400)}>
                 <Pressable
@@ -243,28 +293,38 @@ export default function HistoryScreen() {
                             </View>
                         </ScrollView>
 
-                        {/* RIGHT SIDE: Avatars/Visuals */}
+                        {/* RIGHT SIDE: Bubble Cluster */}
                         <View style={styles.cardRight}>
                             <View style={styles.avatarCluster}>
-                                {/* 1. Top Center (Topic/Generic) */}
-                                <View style={[styles.avatarFrame, styles.avatarTopic]}>
-                                    <Ionicons name="chatbubbles" size={18} color="#6B7280" />
-                                </View>
-
-                                {/* 2. Bottom Left (AI) */}
-                                <View style={[styles.avatarFrame, styles.avatarAI]}>
-                                    <Ionicons name="sparkles" size={18} color="#4F46E5" />
-                                </View>
-
-                                {/* 3. Bottom Right (User - Dominant) */}
-                                <View style={[styles.avatarFrame, styles.avatarUser]}>
-                                    <Image source={{ uri: user?.imageUrl }} style={styles.avatarImage} />
-                                </View>
-
-                                {/* 4. Floating Badge (Count) */}
-                                <View style={styles.countBadge}>
-                                    <Text style={styles.countText}>+2</Text>
-                                </View>
+                                {/* Connected bubble cluster with varied sizes */}
+                                {avatars.map((avatar, idx) => {
+                                    const config = bubbleConfig[idx];
+                                    return (
+                                        <View
+                                            key={idx}
+                                            style={[
+                                                styles.chAvatar,
+                                                {
+                                                    backgroundColor: avatar.color.bg,
+                                                    width: config.size,
+                                                    height: config.size,
+                                                    borderRadius: config.size / 2,
+                                                    top: config.top,
+                                                    left: config.left,
+                                                    right: config.right,
+                                                    bottom: config.bottom,
+                                                    zIndex: config.zIndex
+                                                }
+                                            ]}
+                                        >
+                                            <Ionicons
+                                                name={avatar.icon as any}
+                                                size={config.iconSize}
+                                                color={avatar.color.icon}
+                                            />
+                                        </View>
+                                    );
+                                })}
                             </View>
                         </View>
                     </View>
@@ -459,74 +519,69 @@ const styles = StyleSheet.create({
         color: "#4B5563",
     },
 
-    // Right side Avatars Cluster
+    // Clubhouse Bubble Cluster
     cardRight: {
-        width: 80, // Slightly wider for cluster
+        width: 105,
         justifyContent: 'center',
         alignItems: 'center',
     },
     avatarCluster: {
-        width: 70,
-        height: 70,
+        width: 95,
+        height: 75,
         position: 'relative',
     },
-    avatarFrame: {
-        width: 40,
-        height: 40,
-        borderRadius: 16,
+    // Base Clubhouse Avatar Style
+    chAvatar: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#E9D5FF', // Purple tint default
         position: 'absolute',
-        borderWidth: 2,
-        borderColor: '#F9F8F4', // Match card bg for cutout effect
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 2.5,
+        borderColor: '#FFFFFF',
         overflow: 'hidden',
     },
-    // 1. Top Bubble
-    avatarTopic: {
-        backgroundColor: '#E5E7EB', // Gray 200
-        top: 0,
-        left: 15, // Centered horizontally relative to width 70
-        zIndex: 1,
+    // Color Variants
+    chAvatarGreen: {
+        backgroundColor: '#D1FAE5', // Emerald tint
     },
-    // 2. Bottom Left Bubble
-    avatarAI: {
-        backgroundColor: '#E0E7FF', // Indigo 100
-        bottom: 0,
-        left: 0,
-        zIndex: 2,
+    chAvatarOrange: {
+        backgroundColor: '#FED7AA', // Amber tint
     },
-    // 3. Bottom Right Bubble
-    avatarUser: {
-        backgroundColor: '#FCE7F3', // Pink 100
-        bottom: 5,
-        right: 0,
-        zIndex: 3,
-        width: 44, // Make user slightly larger
-        height: 44,
-        borderRadius: 18,
+    chAvatarRose: {
+        backgroundColor: '#FCE7F3', // Pink tint
     },
-    // 4. Count Badge
-    countBadge: {
+    chAvatarBlue: {
+        backgroundColor: '#DBEAFE', // Sky tint
+    },
+    chAvatarTeal: {
+        backgroundColor: '#CCFBF1', // Teal tint
+    },
+    // Enhanced Count Badge
+    chCountBadge: {
         position: 'absolute',
-        bottom: -4,
-        left: 20,
+        bottom: -5,
+        right: -2,
         backgroundColor: '#FFFFFF',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        zIndex: 4,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
+        paddingHorizontal: 9,
+        paddingVertical: 5,
+        borderRadius: 14,
+        borderWidth: 2,
+        borderColor: '#F9F8F4',
+        shadowColor: '#6366F1',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+        elevation: 6,
+        zIndex: 10,
     },
-    countText: {
-        fontSize: 9,
-        fontWeight: '700',
-        color: '#4B5563',
+    chCountText: {
+        fontSize: 12,
+        fontWeight: '800',
+        color: '#4F46E5',
+        letterSpacing: 0.2,
     },
 
     // Empty State
