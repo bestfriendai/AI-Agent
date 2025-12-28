@@ -24,8 +24,6 @@ export async function GET(request: Request) {
 
     const conversation: ConversationResponse = await response.json();
 
-    console.log("[SERVER] Conversation", conversation);
-
     return new Response(JSON.stringify({ conversation }), { status: 200 });
 
 }

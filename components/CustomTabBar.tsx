@@ -97,9 +97,11 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                                 <TouchableOpacity
                                     key={route.key}
                                     onPress={onPress}
-                                    style={[styles.tabItem]} // No static activeTabItem styles
-                                    accessibilityRole="button"
-                                    accessibilityState={isFocused ? { selected: true } : {}}
+                                    style={[styles.tabItem]}
+                                    accessibilityRole="tab"
+                                    accessibilityLabel={`${label} tab${isFocused ? ', selected' : ''}`}
+                                    accessibilityState={{ selected: isFocused }}
+                                    accessibilityHint={`Navigate to ${label}`}
                                 >
                                     <Ionicons
                                         name={iconName}
@@ -128,6 +130,8 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
                         navigation.navigate(exploreRoute.name);
                     }}
                     accessibilityRole="button"
+                    accessibilityLabel="Search"
+                    accessibilityHint="Open search"
                 >
                     <View style={[styles.searchButtonBlur, { backgroundColor: '#ffffff' }]}>
                         <Ionicons name="search" size={24} color="#000000" />

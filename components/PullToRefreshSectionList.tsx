@@ -1,3 +1,4 @@
+import { logError } from "@/utils/errors";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useCallback, useState } from "react";
@@ -187,7 +188,7 @@ export function PullToRefreshSectionList<ItemT, SectionT>({
             await onRefresh();
             handleRefreshComplete();
         } catch (e) {
-            console.error(e);
+            logError("PullToRefreshSectionList:onRefresh", e);
             pullY.value = withSpring(0);
             setRefreshState("idle");
         }

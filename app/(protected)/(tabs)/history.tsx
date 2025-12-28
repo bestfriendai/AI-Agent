@@ -1,13 +1,16 @@
 import { GlassBlur } from "@/components/GlassBlur";
+import { EmptyState } from "@/components/EmptyState";
 import { PullToRefreshSectionList } from "@/components/PullToRefreshSectionList";
 import { sessionThemes } from "@/utils/colors";
 import { db } from "@/utils/firebase";
+import { logError, parseError } from "@/utils/errors";
+import haptics from "@/utils/haptics";
 import { Session } from "@/utils/types";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import React, { useEffect, useState } from "react";
+import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import React, { useEffect, useState, useRef } from "react";
 import {
     ActivityIndicator,
     Image,
@@ -41,9 +44,19 @@ export default function HistoryScreen() {
     const insets = useSafeAreaInsets();
     const { user } = useUser();
     const router = useRouter();
+    const isMounted = useRef(true);
     const [sections, setSections] = useState<HistorySection[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
 
     useEffect(() => {
         fetchSessions();
@@ -53,24 +66,36 @@ export default function HistoryScreen() {
         if (!user) return;
         try {
             if (sections.length === 0) setLoading(true);
+            setError(null);
 
             const sessionsRef = collection(db, "session");
-            const q = query(sessionsRef, where("user_id", "==", user.id));
+            const q = query(
+                sessionsRef,
+                where("user_id", "==", user.id),
+                orderBy("created_at", "desc")
+            );
             const querySnapshot = await getDocs(q);
+
+            if (!isMounted.current) return;
 
             const sessions: Session[] = [];
             querySnapshot.forEach((doc) => {
                 sessions.push({ id: doc.id, ...doc.data() } as Session);
             });
 
-            sessions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
             const grouped = groupSessions(sessions);
             setSections(grouped);
-        } catch (error) {
-            console.error("Error fetching history:", error);
+        } catch (e) {
+            logError("HistoryScreen:fetchSessions", e);
+            const parsed = parseError(e);
+            if (isMounted.current) {
+                setError(parsed.message);
+                haptics.error();
+            }
         } finally {
-            setLoading(false);
+            if (isMounted.current) {
+                setLoading(false);
+            }
         }
     };
 
@@ -182,6 +207,7 @@ export default function HistoryScreen() {
                         pressed && styles.cardPressed
                     ]}
                     onPress={() => {
+                        haptics.light();
                         router.push({
                             pathname: "/summary",
                             params: {
@@ -191,6 +217,8 @@ export default function HistoryScreen() {
                             }
                         });
                     }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.call_summary_title || "Session"}, ${formatDuration(item.call_duration_secs)}`}
                 >
                     <View style={styles.cardContent}>
                         {/* LEFT SIDE: Text Content */}
@@ -251,6 +279,25 @@ export default function HistoryScreen() {
         return (
             <View style={[styles.container, styles.centerContent]}>
                 <ActivityIndicator size="small" color="#000" />
+            </View>
+        );
+    }
+
+    if (error && sections.length === 0) {
+        return (
+            <View style={styles.container}>
+                {renderHeader()}
+                <View style={[styles.centerContent, { paddingTop: insets.top + 120 }]}>
+                    <EmptyState
+                        type="error"
+                        message={error}
+                        actionLabel="Try Again"
+                        onAction={() => {
+                            haptics.light();
+                            fetchSessions();
+                        }}
+                    />
+                </View>
             </View>
         );
     }
