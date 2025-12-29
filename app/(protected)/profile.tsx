@@ -1,13 +1,14 @@
 import { db } from "@/utils/firebase";
-import { logError } from "@/utils/errors";
-import haptics from "@/utils/haptics";
-import { Session } from "@/utils/types";
-import { useAuth, useUser } from "@clerk/clerk-expo";
+import { getStreakEntries } from "@/utils/streak";
+import { Session, StreakEntry } from "@/utils/types";
+import { useAuth, useUser } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from 'expo-haptics';
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     Dimensions,
     Modal,
@@ -18,12 +19,22 @@ import {
     Switch,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from "react-native";
-import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import Animated, {
+    Easing,
+    FadeInDown,
+    FadeInUp,
+    cancelAnimation,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withTiming
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get('window');
+
 
 const COLORS = {
     bg: '#FFFFFF',
@@ -35,6 +46,8 @@ const COLORS = {
     danger: '#EF4444',
     success: '#10B981',
 };
+
+
 
 const BentoCard = ({ children, style, delay = 0, colSpan = 1 }: any) => (
     <Animated.View
@@ -51,8 +64,16 @@ const BentoCard = ({ children, style, delay = 0, colSpan = 1 }: any) => (
 
 const ActivityBar = ({ height, label, active }: any) => (
     <View style={styles.activityBarContainer}>
-        <View style={[styles.activityBar, { height, backgroundColor: active ? COLORS.accent : '#E4E4E7' }]} />
-        <Text style={[styles.activityLabel, active && { color: COLORS.primary }]}>{label}</Text>
+        <View style={styles.barTrack}>
+            <LinearGradient
+                colors={active ? ['#3B82F6', '#60A5FA'] : ['#93C5FD', '#BFDBFE']}
+                start={{ x: 0, y: 1 }}
+                end={{ x: 0, y: 0 }}
+                style={[styles.activityBarGradient, { height: `${height}%`, opacity: active ? 1 : 1 }]}
+            />
+        </View>
+        <Text style={[styles.activityLabel, active && styles.activeLabel]}>{label}</Text>
+        {active && <View style={styles.activeDot} />}
     </View>
 );
 
@@ -80,7 +101,7 @@ const SettingsModal = ({ visible, onClose, signOut, privacyMode, setPrivacyMode 
                         <Switch
                             value={privacyMode}
                             onValueChange={(v) => {
-                                haptics.light();
+                                Haptics.selectionAsync();
                                 setPrivacyMode(v);
                             }}
                             trackColor={{ false: '#E4E4E7', true: COLORS.accent }}
@@ -94,7 +115,7 @@ const SettingsModal = ({ visible, onClose, signOut, privacyMode, setPrivacyMode 
                     <TouchableOpacity
                         style={styles.logoutBtn}
                         onPress={() => {
-                            haptics.warning();
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                             signOut();
                         }}
                     >
@@ -112,7 +133,7 @@ export default function ProfileScreen() {
     const { user } = useUser();
     const { signOut } = useAuth();
     const insets = useSafeAreaInsets();
-    const isMounted = useRef(true);
+
 
     const [stats, setStats] = useState({
         totalSessions: 0,
@@ -125,22 +146,85 @@ export default function ProfileScreen() {
     const [privacyMode, setPrivacyMode] = useState(false);
     const [settingsVisible, setSettingsVisible] = useState(false);
 
-    // Cleanup on unmount
-    useEffect(() => {
-        isMounted.current = true;
-        return () => {
-            isMounted.current = false;
+    const spinValue = useSharedValue(0);
+    const animatedSpinStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ rotate: `${spinValue.value * 360}deg` }]
         };
-    }, []);
+    });
 
     const parseDate = (date: any): Date => {
         if (!date) return new Date();
         if (typeof date.toDate === 'function') return date.toDate(); // Firestore Timestamp
-        if (date.seconds) return new Date(date.seconds * 1000); // Raw Timestamp object
-        return new Date(date); // ISO string or Date
+        if (date.seconds) return new Date(date.seconds * 1000); // Timestamp
+        return new Date(date); // Date object or string
     };
 
-    const calculateStreak = useCallback((sessions: Session[]) => {
+    const processSessions = useCallback(async (sessions: Session[], streakEntries: StreakEntry[]) => {
+        const totalSessions = sessions.length; // Call sessions
+        const totalDurationSecs = sessions.reduce((acc, s) => acc + (s.call_duration_secs || 0), 0);
+
+        // Breathing exercise duration
+        const breathingDurationSecs = streakEntries.reduce(
+            (acc, entry) => acc + (entry.total_session_duration_seconds || 0),
+            0
+        );
+
+        // Weekly activity from breathing exercises
+        const breathingActivity = await calculateBreathingActivity(streakEntries);
+
+        // Streak from breathing exercises
+        const breathingStreak = calculateBreathingStreak(streakEntries);
+
+        setStats({
+            totalSessions, // Call sessions
+            totalDurationMinutes: Math.floor(breathingDurationSecs / 60), // Breathing exercises
+            averageDurationMinutes: totalSessions > 0 ? Math.round((totalDurationSecs / 60) / totalSessions) : 0, // Call sessions
+            currentStreak: breathingStreak, // Breathing exercise streak
+            dailyActivity: breathingActivity, // Breathing exercise activity
+        });
+    }, []);
+
+    useEffect(() => {
+        if (!user) return;
+
+        setIsRefreshing(true);
+
+        // Fetch sessions
+        const sessionsRef = collection(db, "session");
+        const q = query(sessionsRef, where("user_id", "==", user.id));
+
+        const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+            const sessions: Session[] = [];
+            querySnapshot.forEach((doc) => sessions.push({ id: doc.id, ...doc.data() } as Session));
+
+            // Fetch streak entries
+            const streakEntries = await getStreakEntries(user.id);
+
+            await processSessions(sessions, streakEntries);
+            setIsRefreshing(false);
+        }, (error) => {
+            console.error("Error fetching session data:", error);
+            setIsRefreshing(false);
+        });
+
+        return () => unsubscribe();
+    }, [user, processSessions]);
+
+    const onRefresh = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setIsRefreshing(true);
+        spinValue.value = withRepeat(withTiming(1, { duration: 1000, easing: Easing.linear }), -1, false);
+
+        // Simulate refresh duration
+        setTimeout(() => {
+            setIsRefreshing(false);
+            spinValue.value = 0; // Reset spinner
+            cancelAnimation(spinValue);
+        }, 1500);
+    };
+
+    const calculateStreak = (sessions: Session[]) => {
         if (!sessions.length) return 0;
 
         const uniqueDates = Array.from(new Set(sessions.map(s => {
@@ -166,9 +250,12 @@ export default function ProfileScreen() {
         }
 
         return streak;
-    }, []);
+    };
 
-    const calculateDailyActivity = useCallback((sessions: Session[]) => {
+    // Calculate Daily Activity
+    // Fixed week (Mon-Sun)
+    // Map current week's activity
+    const calculateDailyActivity = (sessions: Session[]) => {
         const activity = [0, 0, 0, 0, 0, 0, 0];
         const today = new Date();
         const day = today.getDay();
@@ -188,60 +275,72 @@ export default function ProfileScreen() {
         });
 
         const maxVal = Math.max(...activity, 1);
-        return activity.map(v => (v / maxVal) * 80);
-    }, []);
+        return activity.map(v => (v / maxVal) * 100);
+    };
 
-    const processSessions = useCallback((sessions: Session[]) => {
-        const totalSessions = sessions.length;
-        const totalDurationSecs = sessions.reduce((acc, s) => acc + (s.call_duration_secs || 0), 0);
+    // Calculate streak from breathing exercises
+    const calculateBreathingStreak = (streakEntries: StreakEntry[]) => {
+        if (streakEntries.length === 0) return 0;
 
-        setStats({
-            totalSessions,
-            totalDurationMinutes: Math.floor(totalDurationSecs / 60),
-            averageDurationMinutes: totalSessions > 0 ? Math.round((totalDurationSecs / 60) / totalSessions) : 0,
-            currentStreak: calculateStreak(sessions),
-            dailyActivity: calculateDailyActivity(sessions),
-        });
-    }, [calculateStreak, calculateDailyActivity]);
+        // Unique dates from breathing exercises
+        const uniqueDates = Array.from(new Set(streakEntries.map(entry => {
+            if (entry.completion_time) {
+                const date = entry.completion_time.toDate();
+                return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+            }
+            return 0;
+        }).filter(d => d > 0))).sort((a, b) => b - a);
 
-    useEffect(() => {
-        if (!user) return;
+        if (uniqueDates.length === 0) return 0;
 
-        setIsRefreshing(true);
-        const sessionsRef = collection(db, "session");
-        const q = query(sessionsRef, where("user_id", "==", user.id));
+        let streak = 0;
+        const today = new Date();
+        const todayReset = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
 
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            if (!isMounted.current) return;
+        const hasToday = uniqueDates.includes(todayReset);
+        const yesterdayReset = todayReset - 86400000;
+        const hasYesterday = uniqueDates.includes(yesterdayReset);
 
-            const sessions: Session[] = [];
-            querySnapshot.forEach((doc) => sessions.push({ id: doc.id, ...doc.data() } as Session));
-            processSessions(sessions);
-            setIsRefreshing(false);
-        }, (error) => {
-            logError("ProfileScreen:onSnapshot", error);
-            if (isMounted.current) {
-                setIsRefreshing(false);
+        // Start counting if activity today or yesterday
+        if (!hasToday && !hasYesterday) return 0;
+
+        let checkTime = hasToday ? todayReset : yesterdayReset;
+
+        // Count consecutive days
+        while (uniqueDates.includes(checkTime)) {
+            streak++;
+            checkTime -= 86400000; // Go back one day
+        }
+
+        return streak;
+    };
+
+    const calculateBreathingActivity = async (streakEntries: StreakEntry[]) => {
+        const activity = [0, 0, 0, 0, 0, 0, 0];
+        const today = new Date();
+        const day = today.getDay();
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(today.setDate(diff));
+        monday.setHours(0, 0, 0, 0);
+
+        streakEntries.forEach(entry => {
+            if (entry.completion_time) {
+                const entryDate = entry.completion_time.toDate();
+                if (entryDate >= monday) {
+                    let dayIndex = entryDate.getDay() - 1;
+                    if (dayIndex === -1) dayIndex = 6;
+                    const durationMins = entry.total_session_duration_seconds / 60;
+                    activity[dayIndex] += durationMins;
+                }
             }
         });
 
-        return () => unsubscribe();
-    }, [user, processSessions]);
-
-    const onRefresh = () => {
-        haptics.light();
-        setTimeout(() => setIsRefreshing(false), 500);
+        const maxVal = Math.max(...activity, 1);
+        return activity.map(v => (v / maxVal) * 100);
     };
 
-    const handleSignOut = async () => {
-        haptics.light();
-        try {
-            await signOut();
-        } catch (e) {
-            logError("ProfileScreen:handleSignOut", e);
-            haptics.error();
-        }
-    };
+
+
 
     return (
         <View style={styles.container}>
@@ -258,18 +357,27 @@ export default function ProfileScreen() {
                 <View style={{ flex: 1, alignItems: 'center' }}>
                     <Text style={styles.headerTitle}>Profile</Text>
                 </View>
-                <TouchableOpacity
-                    style={styles.settingsBtn}
-                    onPress={() => setSettingsVisible(true)}
-                >
-                    <Ionicons name="settings-outline" size={20} color={COLORS.primary} />
-                </TouchableOpacity>
+                <View style={styles.headerRight}>
+                    <TouchableOpacity
+                        style={styles.settingsBtn}
+                        onPress={onRefresh}
+                    >
+                        <Animated.View style={animatedSpinStyle}>
+                            <Ionicons name="refresh" size={20} color={COLORS.primary} />
+                        </Animated.View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.settingsBtn}
+                        onPress={() => setSettingsVisible(true)}
+                    >
+                        <Ionicons name="settings-outline" size={20} color={COLORS.primary} />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
             >
 
                 <Animated.View entering={FadeInDown.duration(600)} style={styles.identityRow}>
@@ -282,6 +390,7 @@ export default function ProfileScreen() {
                         <Text style={styles.proBadgeText}>PRO</Text>
                     </View>
                 </Animated.View>
+
 
                 <View style={styles.gridContainer}>
                     <View style={styles.gridRow}>
@@ -304,7 +413,7 @@ export default function ProfileScreen() {
                     </View>
 
                     <View style={styles.gridRow}>
-                        <BentoCard colSpan={3} delay={300} style={{ height: 160 }}>
+                        <BentoCard colSpan={3} delay={300} style={{ height: 180 }}>
                             <View style={styles.cardHeader}>
                                 <Ionicons name="bar-chart" size={16} color={COLORS.secondary} />
                                 <Text style={styles.cardLabel}>WEEKLY ACTIVITY</Text>
@@ -331,18 +440,16 @@ export default function ProfileScreen() {
                             <Text style={styles.cardLabelBottom}>AVG TIME</Text>
                         </BentoCard>
                         <BentoCard colSpan={1} delay={600} style={{ alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.accent }}>
-                            <Ionicons name="share-outline" size={24} color="#FFFFFF" />
+                            <Ionicons name="share-outline" size={24} color={COLORS.primary} />
                         </BentoCard>
                     </View>
                 </View>
 
+
                 <View style={styles.menuContainer}>
                     <TouchableOpacity
                         style={styles.menuItem}
-                        onPress={() => {
-                            haptics.light();
-                            router.push('/(protected)/(tabs)/history');
-                        }}
+                        onPress={() => router.push('/(protected)/(tabs)/history')}
                     >
                         <Text style={styles.menuText}>History & Logs</Text>
                         <Ionicons name="arrow-forward" size={16} color={COLORS.secondary} />
@@ -350,9 +457,7 @@ export default function ProfileScreen() {
                     <View style={styles.divider} />
                     <TouchableOpacity
                         style={styles.menuItem}
-                        onPress={() => {
-                            haptics.success();
-                        }}
+                        onPress={() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)}
                     >
                         <Text style={styles.menuText}>Achievements</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -363,10 +468,7 @@ export default function ProfileScreen() {
                     <View style={styles.divider} />
                     <TouchableOpacity
                         style={styles.menuItem}
-                        onPress={() => {
-                            haptics.light();
-                            setSettingsVisible(true);
-                        }}
+                        onPress={() => setSettingsVisible(true)}
                     >
                         <Text style={styles.menuText}>Preferences</Text>
                         <Ionicons name="settings-outline" size={16} color={COLORS.secondary} />
@@ -378,7 +480,7 @@ export default function ProfileScreen() {
             <SettingsModal
                 visible={settingsVisible}
                 onClose={() => setSettingsVisible(false)}
-                signOut={handleSignOut}
+                signOut={signOut}
                 privacyMode={privacyMode}
                 setPrivacyMode={setPrivacyMode}
             />
@@ -402,6 +504,12 @@ const styles = StyleSheet.create({
         fontSize: 32,
         fontWeight: '800',
         color: COLORS.primary,
+        letterSpacing: -1,
+    },
+    headerRight: {
+        flexDirection: 'row',
+        gap: 12,
+        alignItems: 'center',
     },
     settingsBtn: {
         width: 40,
@@ -417,6 +525,8 @@ const styles = StyleSheet.create({
         paddingBottom: 40,
         paddingHorizontal: 20,
     },
+
+
     identityRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -434,6 +544,7 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: '700',
         color: COLORS.primary,
+        letterSpacing: -0.5,
     },
     userEmail: {
         fontSize: 14,
@@ -450,6 +561,8 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         fontSize: 10,
     },
+
+
     gridContainer: {
         gap: 12,
         marginBottom: 30,
@@ -485,6 +598,7 @@ const styles = StyleSheet.create({
         color: COLORS.primary,
         fontSize: 36,
         fontWeight: '700',
+        letterSpacing: -1,
     },
     timeUnit: {
         color: COLORS.secondary,
@@ -497,38 +611,67 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: '700',
         marginTop: 4,
+        letterSpacing: 0.5,
     },
     cardValue: {
         color: COLORS.primary,
         fontSize: 24,
         fontWeight: '700',
+        letterSpacing: -0.5,
     },
     cardValueSmall: {
         color: COLORS.primary,
         fontSize: 20,
         fontWeight: '700',
+        letterSpacing: -0.5,
     },
+
+
     chartContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-end',
-        height: 90,
+        height: 125,
         paddingBottom: 4,
     },
     activityBarContainer: {
         alignItems: 'center',
+        justifyContent: 'flex-end',
+        height: '100%',
         gap: 8,
+        width: 34,
     },
-    activityBar: {
-        width: 6,
-        borderRadius: 3,
-        backgroundColor: '#E4E4E7',
+    barTrack: {
+        width: 14,
+        flex: 1,
+        backgroundColor: '#F1F5F9', // Softer grey
+        borderRadius: 12, // Fully rounded
+        overflow: 'hidden',
+        justifyContent: 'flex-end',
+    },
+    activityBarGradient: {
+        width: '100%',
+        borderRadius: 12,
     },
     activityLabel: {
         color: COLORS.secondary,
-        fontSize: 10,
+        fontSize: 12,
         fontWeight: '600',
+        marginBottom: 2,
     },
+    activeLabel: {
+        color: COLORS.primary,
+        fontWeight: '800',
+    },
+    activeDot: {
+        position: 'absolute',
+        bottom: -6,
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: COLORS.primary,
+    },
+
+
     menuContainer: {
         backgroundColor: COLORS.card,
         borderRadius: 20,
@@ -552,12 +695,14 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.cardBorder,
         marginHorizontal: 16,
     },
+
+
     modalOverlay: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 24,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: 'rgba(0,0,0,0.5)', // Standard dimming
     },
     modalContent: {
         width: '100%',
@@ -617,7 +762,7 @@ const styles = StyleSheet.create({
     },
     logoutBtn: {
         flexDirection: 'row',
-        backgroundColor: '#FEF2F2',
+        backgroundColor: '#FEF2F2', // Light Red bg
         paddingVertical: 16,
         borderRadius: 16,
         alignItems: 'center',

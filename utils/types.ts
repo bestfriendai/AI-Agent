@@ -31,8 +31,8 @@ export interface ConversationResponse {
 }
 
 export interface Session {
-    id: string; // Firebase IDs are strings
-    created_at: string; // ISO string
+    id: string;
+    created_at: string;
     user_id: string;
     status: "in-progress" | "done" | "failed";
     conv_id: string;
@@ -40,4 +40,28 @@ export interface Session {
     call_duration_secs?: number;
     transcript?: string;
     call_summary_title?: string;
+}
+
+export interface StreakEntry {
+    id?: string;
+    user_id: string;
+    session_type: string;
+    session_title: string;
+    session_details?: {
+        duration_minutes?: number;
+        accent_color?: string;
+        audio_enabled?: boolean;
+        [key: string]: any;
+    };
+    completion_time: any;
+    total_session_duration_seconds: number;
+}
+
+export interface Achievement {
+    id?: string;
+    user_id: string;
+    achievement_type: string;
+    title: string;
+    description: string;
+    earned_at: any;
 }

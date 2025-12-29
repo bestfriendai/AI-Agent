@@ -3,7 +3,7 @@ import { db } from "@/utils/firebase";
 import { logError, parseError } from "@/utils/errors";
 import haptics from "@/utils/haptics";
 import { ConversationResponse, TranscriptEntry } from "@/utils/types";
-import { useUser } from "@clerk/clerk-expo";
+import { useUser } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";

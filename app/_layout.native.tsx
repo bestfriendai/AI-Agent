@@ -3,8 +3,7 @@
  * Handles authentication routing and global providers
  */
 
-import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
-import { tokenCache } from "@clerk/clerk-expo/token-cache";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { ActivityIndicator, StatusBar, StyleSheet, View } from "react-native";
@@ -15,7 +14,7 @@ import { colors } from "@/utils/colors";
 
 /**
  * Loading Screen Component
- * Displayed while Clerk is loading auth state
+ * Displayed while Firebase is loading auth state
  */
 function LoadingScreen() {
     return (
@@ -39,12 +38,6 @@ function RootLayoutWithAuth() {
 
         const inProtectedGroup = segments[0] === "(protected)";
         const inPublicGroup = segments[0] === "(public)";
-        const isOAuthCallback = segments[0] === "oauth-native-callback";
-
-        // Skip redirect if on OAuth callback - it handles its own redirect
-        if (isOAuthCallback) {
-            return;
-        }
 
         // Redirect based on auth state
         if (isSignedIn && !inProtectedGroup) {
@@ -67,10 +60,6 @@ function RootLayoutWithAuth() {
                 gestureEnabled: true,
             }}
         >
-            <Stack.Screen
-                name="oauth-native-callback"
-                options={{ headerShown: false, animation: "fade" }}
-            />
             <Stack.Protected guard={isSignedIn}>
                 <Stack.Screen name="(protected)" options={{ headerShown: false }} />
             </Stack.Protected>
@@ -86,37 +75,18 @@ function RootLayoutWithAuth() {
  * Provides global context providers and error handling
  */
 export default function RootLayout() {
-    const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
-    // Validate Clerk key
-    if (!publishableKey) {
-        if (__DEV__) {
-            console.error(
-                "[RootLayout] Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY environment variable"
-            );
-        }
-        return (
-            <View style={styles.errorContainer}>
-                <ActivityIndicator size="large" color={colors.error} />
-            </View>
-        );
-    }
-
     return (
         <ErrorBoundary>
             <GestureHandlerRootView style={styles.container}>
                 <SafeAreaProvider>
-                    <ClerkProvider
-                        tokenCache={tokenCache}
-                        publishableKey={publishableKey}
-                    >
+                    <AuthProvider>
                         <StatusBar
                             backgroundColor="transparent"
                             barStyle="dark-content"
                             translucent
                         />
                         <RootLayoutWithAuth />
-                    </ClerkProvider>
+                    </AuthProvider>
                 </SafeAreaProvider>
             </GestureHandlerRootView>
         </ErrorBoundary>

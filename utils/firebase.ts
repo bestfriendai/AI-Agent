@@ -3,8 +3,9 @@
  * Initializes Firebase with proper validation and error handling
  */
 
-import { initializeApp, FirebaseApp } from "firebase/app";
+import { initializeApp, FirebaseApp, getApps } from "firebase/app";
 import { getFirestore, Firestore } from "firebase/firestore";
+import { getAuth, Auth } from "firebase/auth";
 
 // Required environment variables for Firebase to work
 const REQUIRED_ENV_VARS = [
@@ -52,13 +53,14 @@ function getFirebaseConfig() {
 // Singleton instances
 let app: FirebaseApp | null = null;
 let firestore: Firestore | null = null;
+let firebaseAuth: Auth | null = null;
 let initializationError: Error | null = null;
 
 /**
  * Initialize Firebase with validation
  */
 function initializeFirebase(): void {
-    if (app && firestore) {
+    if (app && firestore && firebaseAuth) {
         return;
     }
 
@@ -70,8 +72,13 @@ function initializeFirebase(): void {
         validateEnvVars();
 
         const config = getFirebaseConfig();
-        app = initializeApp(config);
+
+        // Check if app already exists
+        const existingApps = getApps();
+        app = existingApps.length > 0 ? existingApps[0] : initializeApp(config);
+
         firestore = getFirestore(app);
+        firebaseAuth = getAuth(app);
 
         if (__DEV__) {
             console.log('[Firebase] Initialized successfully');
@@ -108,10 +115,20 @@ export function getApp(): FirebaseApp {
 }
 
 /**
+ * Get Firebase Auth instance (lazy initialization)
+ */
+export function getFirebaseAuth(): Auth {
+    if (!firebaseAuth) {
+        initializeFirebase();
+    }
+    return firebaseAuth!;
+}
+
+/**
  * Check if Firebase is initialized
  */
 export function isFirebaseInitialized(): boolean {
-    return app !== null && firestore !== null;
+    return app !== null && firestore !== null && firebaseAuth !== null;
 }
 
 /**
@@ -144,4 +161,21 @@ export const db = (() => {
         });
     }
     return firestore;
+})();
+
+// Export Auth instance (will throw if not initialized)
+export const auth = (() => {
+    if (!firebaseAuth) {
+        // During build time, env vars might not be available
+        // Return a proxy that throws on access
+        return new Proxy({} as Auth, {
+            get() {
+                if (!firebaseAuth) {
+                    initializeFirebase();
+                }
+                return firebaseAuth;
+            },
+        });
+    }
+    return firebaseAuth;
 })();

@@ -23,7 +23,7 @@ import Animated, {
     useAnimatedStyle,
     useSharedValue,
     withSpring,
-    type SharedValue
+    type SharedValue,
 } from "react-native-reanimated";
 
 // ----------------------------------------------------------------------
@@ -44,10 +44,10 @@ interface PullToRefreshSectionListProps<ItemT, SectionT>
 const PULL_THRESHOLD = 90;
 const REFRESH_HEIGHT = 70;
 const SPRING_CONFIG = {
-    damping: 30, // Higher damping = less oscillation
+    damping: 30,
     stiffness: 100,
     mass: 1,
-    overshootClamping: true, // No bouncing past the target
+    overshootClamping: true,
 };
 
 // ----------------------------------------------------------------------
@@ -65,18 +65,18 @@ const RefreshIndicator = ({
     topOffset: number;
     refreshColor: string;
 }) => {
-    // 1. Container Style (Position & Opacity)
+    // 1. Container Style
     const containerStyle = useAnimatedStyle(() => {
         const opacity = interpolate(
             pullY.value,
-            [15, 50], // Start appearing later
+            [15, 50],
             [0, 1],
             Extrapolation.CLAMP
         );
         const translateY = interpolate(
             pullY.value,
             [0, PULL_THRESHOLD],
-            [-60, 20], // Move much further up when idle (-60) to hide behind header
+            [-60, 20],
             Extrapolation.EXTEND
         );
 
@@ -87,7 +87,7 @@ const RefreshIndicator = ({
         };
     });
 
-    // 2. Icon Rotation (Arrow)
+    // 2. Icon Rotation
     const arrowStyle = useAnimatedStyle(() => {
         const rotate = interpolate(
             pullY.value,
@@ -114,19 +114,13 @@ const RefreshIndicator = ({
     return (
         <Animated.View style={[styles.indicatorContainer, containerStyle]}>
             <View style={styles.indicatorCircle}>
-                {/* Dragging Arrow */}
                 <Animated.View style={arrowStyle}>
                     <Ionicons name="arrow-down" size={20} color={refreshColor} />
                 </Animated.View>
 
-                {/* Refreshing Spinner or Check */}
                 <Animated.View style={statusIconStyle}>
                     {state === "done" ? (
-                        <Ionicons
-                            name="checkmark"
-                            size={22}
-                            color={refreshColor}
-                        />
+                        <Ionicons name="checkmark" size={22} color={refreshColor} />
                     ) : (
                         <ActivityIndicator size="small" color={refreshColor} />
                     )}
@@ -156,7 +150,6 @@ export function PullToRefreshSectionList<ItemT, SectionT>({
         "idle" | "pulling" | "refreshing" | "done"
     >("idle");
 
-    // Shared Values
     const pullY = useSharedValue(0);
     const scrollY = useSharedValue(0);
     const isDragging = useSharedValue(false);
@@ -174,7 +167,6 @@ export function PullToRefreshSectionList<ItemT, SectionT>({
 
     const handleRefreshComplete = useCallback(() => {
         setRefreshState("done");
-        // Hold the "done" state briefly, then spring back
         setTimeout(() => {
             pullY.value = withSpring(0, SPRING_CONFIG, (finished) => {
                 if (finished) {
@@ -189,8 +181,6 @@ export function PullToRefreshSectionList<ItemT, SectionT>({
 
         setRefreshState("refreshing");
         hapticImpact(Haptics.ImpactFeedbackStyle.Medium);
-
-        // Snap to refresh height
         pullY.value = withSpring(REFRESH_HEIGHT, SPRING_CONFIG);
 
         try {
@@ -251,7 +241,7 @@ export function PullToRefreshSectionList<ItemT, SectionT>({
             }
         });
 
-    // Haptic Trigger on Threshold Cross
+    // Haptic Trigger
     useAnimatedReaction(
         () => pullY.value,
         (current, previous) => {
@@ -270,7 +260,6 @@ export function PullToRefreshSectionList<ItemT, SectionT>({
     // Styles
     // --------------------------------------------------
 
-    // The entire list moves down
     const listAnimatedStyle = useAnimatedStyle(() => ({
         transform: [{ translateY: pullY.value }],
     }));

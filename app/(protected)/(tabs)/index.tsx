@@ -12,7 +12,7 @@ import { sessions } from "@/utils/sessions";
 import { Session } from "@/utils/types";
 import { logError, parseError } from "@/utils/errors";
 import haptics from "@/utils/haptics";
-import { useUser } from "@clerk/clerk-expo";
+import { useUser } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
