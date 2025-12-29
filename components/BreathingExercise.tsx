@@ -1,5 +1,7 @@
+import { addBreathingExerciseAchievement } from '@/utils/achievements';
 import { colors } from '@/utils/colors';
-import haptics from '@/utils/haptics';
+import { saveStreakEntry } from '@/utils/streak';
+import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer } from 'expo-audio';
 import { BlurView } from 'expo-blur';
@@ -18,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import ExerciseCompletionScreen from './ExerciseCompletionScreen';
 
 const { width } = Dimensions.get('window');
 const BLOB_SIZE = width * 1.5;
@@ -34,12 +37,19 @@ interface BreathingExerciseProps {
 
 export default function BreathingExercise({ session }: BreathingExerciseProps) {
     const router = useRouter();
+    const { user } = useUser();
     const insets = useSafeAreaInsets();
     const isMounted = useRef(true);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const progress = useSharedValue(0);
     const isInhaling = useSharedValue(true);
     const [instruction, setInstruction] = useState('Breathe in');
+    const [showCompletion, setShowCompletion] = useState(false);
+    const [achievementEarned, setAchievementEarned] = useState<{
+        title: string;
+        description: string;
+        icon: keyof typeof Ionicons.glyphMap;
+    } | undefined>(undefined);
 
     // Timer Logic
     const durationString = session?.duration || '3 min';
@@ -90,9 +100,7 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
         }
     }, [isAudioEnabled, player]);
 
-    // Toggle Handler
-    const toggleAudio = useCallback(() => {
-        haptics.light();
+    const toggleAudio = () => {
         setIsAudioEnabled((prev) => !prev);
     }, []);
 
@@ -105,17 +113,58 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
         router.back();
     }, [player, router]);
 
+    const handleSessionComplete = async () => {
+        if (!user?.id) {
+            console.error('No user ID available');
+            return;
+        }
+
+        try {
+            const actualDurationSeconds = initialSeconds;
+
+            await saveStreakEntry({
+                userId: user.id,
+                sessionType: 'breathing',
+                sessionTitle: session?.title || 'Breathing Exercise',
+                sessionDetails: {
+                    duration_minutes: parseInt(session?.duration || '3'),
+                    accent_color: session?.accentColor,
+                    audio_enabled: isAudioEnabled,
+                },
+                totalDurationSeconds: actualDurationSeconds,
+            });
+
+            const achievementResult = await addBreathingExerciseAchievement(user.id);
+
+            // Check if a new achievement was earned
+            if (achievementResult?.newlyAwarded) {
+                setAchievementEarned({
+                    title: 'First Breath',
+                    description: 'Completed your first breathing exercise',
+                    icon: 'trophy',
+                });
+            }
+
+            console.log('✅ Session data saved and achievement checked');
+        } catch (error) {
+            console.error('Error saving session data:', error);
+        }
+    };
+
     useEffect(() => {
         timerRef.current = setInterval(() => {
             if (!isMounted.current) return;
 
             setRemainingSeconds((prev) => {
                 if (prev <= 1) {
-                    if (timerRef.current) {
-                        clearInterval(timerRef.current);
-                    }
-                    haptics.success();
-                    router.back();
+                    clearInterval(timer);
+                    handleSessionComplete().then(() => {
+                        setShowCompletion(true);
+                        // Stop audio when showing completion
+                        if (player) {
+                            player.pause();
+                        }
+                    });
                     return 0;
                 }
                 return prev - 1;
@@ -125,8 +174,8 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
         const duration = 4000;
         progress.value = withRepeat(
             withTiming(1, { duration, easing: Easing.inOut(Easing.quad) }),
-            -1, // infinite
-            true // reverse
+            -1,
+            true
         );
 
         return () => {
@@ -178,6 +227,19 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
         }
     });
 
+    // Show completion screen when exercise is done
+    if (showCompletion) {
+        return (
+            <ExerciseCompletionScreen
+                sessionTitle={session?.title || 'Breathing Exercise'}
+                durationMinutes={parseInt(session?.duration || '3')}
+                accentColor={blobColor}
+                achievement={achievementEarned}
+                onComplete={() => router.back()}
+            />
+        );
+    }
+
     return (
         <View style={styles.container}>
             <TouchableOpacity
@@ -211,6 +273,8 @@ export default function BreathingExercise({ session }: BreathingExerciseProps) {
                     </BlurView>
                 </TouchableOpacity>
             )}
+
+
 
             <View style={styles.textContainer}>
                 {session?.title && (
