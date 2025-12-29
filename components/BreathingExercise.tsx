@@ -1,7 +1,7 @@
 import { addBreathingExerciseAchievement } from '@/utils/achievements';
 import { colors } from '@/utils/colors';
 import { saveStreakEntry } from '@/utils/streak';
-import { useUser } from '@clerk/clerk-expo';
+import { useUser } from "@/contexts/AuthContext";
 import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer } from 'expo-audio';
 import { BlurView } from 'expo-blur';

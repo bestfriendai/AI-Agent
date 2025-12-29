@@ -1,5 +1,5 @@
 import haptics from '@/utils/haptics';
-import { useUser } from '@clerk/clerk-expo';
+import { useUser } from "@/contexts/AuthContext";
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';

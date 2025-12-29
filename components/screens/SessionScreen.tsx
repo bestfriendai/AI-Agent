@@ -9,7 +9,7 @@ import { colors } from "@/utils/colors";
 import { parseError, logError, withTimeout } from "@/utils/errors";
 import haptics from "@/utils/haptics";
 import { API_CONFIG } from "@/utils/constants";
-import { useUser } from "@clerk/clerk-expo";
+import { useUser } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import * as Brightness from "expo-brightness";
 import { useLocalSearchParams, useRouter } from "expo-router";

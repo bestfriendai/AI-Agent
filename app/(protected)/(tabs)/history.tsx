@@ -4,7 +4,7 @@ import { db } from "@/utils/firebase";
 import { logError, parseError } from "@/utils/errors";
 import haptics from "@/utils/haptics";
 import { Session } from "@/utils/types";
-import { useUser } from "@clerk/clerk-expo";
+import { useUser } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";

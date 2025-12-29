@@ -1,7 +1,7 @@
 import { db } from "@/utils/firebase";
 import { getStreakEntries } from "@/utils/streak";
 import { Session, StreakEntry } from "@/utils/types";
-import { useAuth, useUser } from "@clerk/clerk-expo";
+import { useAuth, useUser } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { Image } from "expo-image";
@@ -152,10 +152,6 @@ export default function ProfileScreen() {
             transform: [{ rotate: `${spinValue.value * 360}deg` }]
         };
     });
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    const [privacyMode, setPrivacyMode] = useState(false);
-    const [settingsVisible, setSettingsVisible] = useState(false);
-
 
     const parseDate = (date: any): Date => {
         if (!date) return new Date();
